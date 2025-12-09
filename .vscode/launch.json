@@ -1,0 +1,26 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "Launch with no param",
+            "url": "http://localhost:5173",
+            "skipFiles": [
+                "<node_modules>/**"
+            ],            
+        },
+         {
+            "type": "chrome",
+            "request": "launch",
+            "name": "Launch with Team Beta (mock)",
+            "url": "http://localhost:5173?data=eyJ0aXRsZSI6IlRlYW0gQmV0YSAtIEFnaW5nIFdJUCIsInN1YnRpdGxlIjoiQXMgb2YgMjAyNC8wNi8yMyIsImJvYXJkX3VybCI6IiMiLCJtaW5fZGF5cyI6MCwibWF4X2RheXMiOjMwLCJmZWF0dXJlcyI6eyJkZXBlbmRlbmNpZXMiOnsiZW5hYmxlZCI6dHJ1ZSwic2hvd190b2dnbGUiOnRydWUsImRlZmF1bHRfdmlzaWJsZSI6dHJ1ZSwiYXJyb3dfY29sb3IiOiIjMzAzMDMwIiwiYXJyb3dfdGhpY2tuZXNzIjoyfSwiZmlsdGVycyI6eyJlbmFibGVkIjp0cnVlLCJmaWVsZHMiOlsidHlwZSIsImFzc2lnbmVlIiwibGFiZWwiLCJwYXJlbnQiXX19LCJjb2x1bW5zIjpbeyJzdHlsZSI6eyJuYW1lIjoiQW5hbHlzaXMgQWN0aXZlIiwidG9wX3RleHQiOiJXSVA6IDMiLCJvcmRlciI6MSwic3RlcDFfY29sb3IiOiIjODZlZmFjIiwic3RlcDJfY29sb3IiOiIjZmVmMDhhIiwic3RlcDNfY29sb3IiOiIjZmRlMDQ3Iiwic3RlcDRfY29sb3IiOiIjZmRiYTc0Iiwic3RlcDVfY29sb3IiOiIjZmNhNWE1In0sInNsZSI6eyJzdGVwMSI6Miwic3RlcDIiOjUsInN0ZXAzIjo3LCJzdGVwNCI6MTJ9LCJpdGVtcyI6W3sia2V5IjoiS0FOLTIwMiIsInRpdGxlIjoiRGF0YWJhc2UgU2NoZW1hIFJldmlldyIsInR5cGUiOiJUYXNrIiwiYWdlIjoxLCJhc3NpZ25lZSI6eyJuYW1lIjoiQWxpY2UgRGV2IiwicGljdHVyZSI6IiIsImxpbmsiOiIjIn0sImxhYmVscyI6WyJCYWNrZW5kIiwiREIiXSwicGFyZW50Ijp7ImtleSI6IkVQSUMtMSIsInRpdGxlIjoiQmFja2VuZCBPdmVyaGF1bCIsInVybCI6IiMifSwidXJsIjoiaHR0cHM6Ly9qaXJhLmNvbXBhbnkuY29tL2Jyb3dzZS9LQU4tMjAyIn0seyJrZXkiOiJLQU4tMjA1IiwidGl0bGUiOiJMb2dpbiBBdXRoIEJ1ZyIsInR5cGUiOiJCdWciLCJhZ2UiOjEzLCJhc3NpZ25lZSI6eyJuYW1lIjoiQm9iIFFBIiwicGljdHVyZSI6IiIsImxpbmsiOiIjIn0sImxhYmVscyI6WyJTZWN1cml0eSJdLCJwYXJlbnQiOnsia2V5IjoiRVBJQy0yIiwidGl0bGUiOiJTZWN1cml0eSBBdWRpdCIsInVybCI6IiMifSwidXJsIjoiaHR0cHM6Ly9qaXJhLmNvbXBhbnkuY29tL2Jyb3dzZS9LQU4tMjA1IiwiZGVwZW5kc19vbiI6IktBTi0yMDIifSx7ImtleSI6IktBTi0yMDYiLCJ0aXRsZSI6IkxlZ2FjeSBDbGVhbnVwIiwidHlwZSI6IlRhc2siLCJhZ2UiOjQsImFzc2lnbmVlIjp7Im5hbWUiOiJDaGFybGllIiwicGljdHVyZSI6IiIsImxpbmsiOiIjIn0sImxhYmVscyI6WyJUZWNoIERlYnQiXSwicGFyZW50Ijp7ImtleSI6IkVQSUMtMSIsInRpdGxlIjoiQmFja2VuZCBPdmVyaGF1bCIsInVybCI6IiMifSwidXJsIjoiaHR0cHM6Ly9qaXJhLmNvbXBhbnkuY29tL2Jyb3dzZS9LQU4tMjA2In1dfSx7InN0eWxlIjp7Im5hbWUiOiJEZXYgQWN0aXZlIiwidG9wX3RleHQiOiJXSVA6IDIiLCJvcmRlciI6Miwic3RlcDFfY29sb3IiOiIjODZlZmFjIiwic3RlcDJfY29sb3IiOiIjZmVmMDhhIiwic3RlcDNfY29sb3IiOiIjZmRlMDQ3Iiwic3RlcDRfY29sb3IiOiIjZmRiYTc0Iiwic3RlcDVfY29sb3IiOiIjZmNhNWE1In0sInNsZSI6eyJzdGVwMSI6NSwic3RlcDIiOjEwLCJzdGVwMyI6MTUsInN0ZXA0IjoyMH0sIml0ZW1zIjpbeyJrZXkiOiJLQU4tMzAxIiwidGl0bGUiOiJBUEkgSW50ZWdyYXRpb24iLCJ0eXBlIjoiU3RvcnkiLCJhZ2UiOjgsImFzc2lnbmVlIjp7Im5hbWUiOiJEaWFuYSIsInBpY3R1cmUiOiIiLCJsaW5rIjoiIyJ9LCJsYWJlbHMiOlsiRnJvbnRlbmQiXSwicGFyZW50Ijp7ImtleSI6IkVQSUMtMyIsInRpdGxlIjoiRnJvbnRlbmQgUmV2YW1wIiwidXJsIjoiIyJ9LCJ1cmwiOiJodHRwczovL2ppcmEuY29tcGFueS5jb20vYnJvd3NlL0tBTi0zMDEiLCJkZXBlbmRzX29uIjoiS0FOLTIwNiJ9LHsia2V5IjoiS0FOLTMwNSIsInRpdGxlIjoiUGVyZm9ybWFuY2UgVHVuaW5nIiwidHlwZSI6IlRhc2siLCJhZ2UiOjIyLCJhc3NpZ25lZSI6eyJuYW1lIjoiRXZhbiIsInBpY3R1cmUiOiIiLCJsaW5rIjoiIyJ9LCJsYWJlbHMiOlsiT3BzIl0sInBhcmVudCI6eyJrZXkiOiJFUElDLTMiLCJ0aXRsZSI6IkZyb250ZW5kIFJldmFtcCIsInVybCI6IiMifSwidXJsIjoiaHR0cHM6Ly9qaXJhLmNvbXBhbnkuY29tL2Jyb3dzZS9LQU4tMzA1In1dfSx7InN0eWxlIjp7Im5hbWUiOiJUZXN0aW5nIiwidG9wX3RleHQiOiJXSVA6IDEiLCJvcmRlciI6Mywic3RlcDFfY29sb3IiOiIjODZlZmFjIiwic3RlcDJfY29sb3IiOiIjZmVmMDhhIiwic3RlcDNfY29sb3IiOiIjZmRlMDQ3Iiwic3RlcDRfY29sb3IiOiIjZmRiYTc0Iiwic3RlcDVfY29sb3IiOiIjZmNhNWE1In0sInNsZSI6eyJzdGVwMSI6Mywic3RlcDIiOjYsInN0ZXAzIjo5LCJzdGVwNCI6MTV9LCJpdGVtcyI6W3sia2V5IjoiS0FOLTEwMSIsInRpdGxlIjoiQ3JpdGljYWwgRml4IiwidHlwZSI6IkJ1ZyIsImFnZSI6MjgsImFzc2lnbmVlIjp7Im5hbWUiOiJGaW9uYSIsInBpY3R1cmUiOiIiLCJsaW5rIjoiIyJ9LCJsYWJlbHMiOlsiVXJnZW50Il0sInBhcmVudCI6eyJrZXkiOiJFUElDLTkiLCJ0aXRsZSI6IlEzIEdvYWxzIiwidXJsIjoiIyJ9LCJ1cmwiOiJodHRwczovL2ppcmEuY29tcGFueS5jb20vYnJvd3NlL0tBTi0xMDEiLCJkZXBlbmRzX29uIjoiS0FOLTMwNSJ9XX1dfQ==",
+            "skipFiles": [
+                "<node_modules>/**"
+            ],            
+        }
+    ]
+}

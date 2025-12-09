@@ -3,7 +3,7 @@ import { Info, Bug, CheckSquare, Bookmark, Filter, ArrowRight, Link as LinkIcon,
 
 // --- Mock Data ---
 const MOCK_DATA = {
-  "title": "Team Alpha - Aging WIP",
+  "title": "Team Alpha MOCK Data - Aging WIP",
   "subtitle": "As of 2024/06/23",
   "board_url": "#",
   "min_days": 0,
@@ -467,8 +467,35 @@ const FilterBar = ({ config, columns, activeFilters, onFilterChange, dependencyC
   );
 };
 
+const getDataFromURL = () => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const dataParam = params.get('data');
+    
+    if (dataParam) {
+      // Try Base64 decoding first
+      try {
+        const decoded = atob(dataParam);
+        return JSON.parse(decoded);
+      } catch {
+        // Fall back to URL decoding
+        const decoded = decodeURIComponent(dataParam);
+        return JSON.parse(decoded);
+      }
+    }
+  } catch (error) {
+    console.error('Error parsing data from URL:', error);
+    console.warn('Falling back to mock data');
+  }
+  
+  return null;
+};
+
 export default function App() {
-  const { title, subtitle, max_days, columns, board_url, features } = MOCK_DATA;
+  // Load data from URL or fall back to mock data
+  const [data] = useState(() => getDataFromURL() || MOCK_DATA);
+
+  const { title, subtitle, max_days, columns, board_url, features } = data;
   const [tooltipData, setTooltipData] = useState(null);
   const [activeFilters, setActiveFilters] = useState({});
   const [showArrows, setShowArrows] = useState(features.dependencies.default_visible);
