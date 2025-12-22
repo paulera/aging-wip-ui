@@ -53,7 +53,7 @@ const MOCK_DATA = {
           "age": 1,
           "priority": "High",
           "urgency": 3,
-          "assignee": { "name": "Alice Dev", "picture": "", "link": "#" },
+          "assignee": { "name": "Alice Dev", "picture": "https://i.pravatar.cc/150?img=10", "link": "#" },
           "labels": ["Backend", "DB"],
           "parent": { "key": "EPIC-1", "title": "Backend Overhaul", "url": "#" },
           "url": "https://jira.company.com/browse/KAN-202",
@@ -66,7 +66,7 @@ const MOCK_DATA = {
           "age": 13,
           "priority": "Highest",
           "urgency": 4,
-          "assignee": { "name": "Bob QA", "picture": "", "link": "#" },
+          "assignee": { "name": "Bob QA", "picture": "https://i.pravatar.cc/150?img=2", "link": "#" },
           "labels": ["Security"],
           "parent": { "key": "EPIC-2", "title": "Security Audit", "url": "#" },
           "url": "https://jira.company.com/browse/KAN-205",
@@ -291,8 +291,14 @@ const SmartTooltip = ({ item, dependency, position, theme }) => {
       </div>
 
       <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-        <div className="w-5 h-5 bg-indigo-100 rounded-full flex items-center justify-center text-[10px] text-indigo-700 font-bold">
-            {item.assignee.picture ? <img src={item.assignee.picture} className="w-full h-full rounded-full" alt={item.assignee.name} /> : item.assignee.name[0]}
+        <div className="w-5 h-5 bg-indigo-100 rounded-full flex items-center justify-center text-[10px] text-indigo-700 font-bold overflow-hidden">
+            {item.assignee.picture ? (
+              <img src={item.assignee.picture} className="w-full h-full object-cover" alt={item.assignee.name} />
+            ) : (
+              <span>
+                {item.assignee.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+              </span>
+            )}
         </div>
         <span className="text-xs text-slate-500">{item.assignee.name}</span>
       </div>
