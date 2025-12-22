@@ -38,11 +38,9 @@ const data = {
   },
   "columns": [
     {
-      "style": {
-        "name": "Analysis Active",
-        "top_text": "WIP: 3",
-        "order": 1
-      },
+      "name": "Analysis Active",
+      "top_text": "WIP: 3",
+      "order": 1,
       "sle": { "step1": 2, "step2": 5, "step3": 7, "step4": 12 },
       "items": [
         {
@@ -85,11 +83,9 @@ const data = {
       ]
     },
     {
-      "style": {
-        "name": "Dev Active",
-        "top_text": "WIP: 2",
-        "order": 2
-      },
+      "name": "Dev Active",
+      "top_text": "WIP: 2",
+      "order": 2,
       "sle": { "step1": 5, "step2": 10, "step3": 15, "step4": 20 },
       "items": [
          {
@@ -120,11 +116,9 @@ const data = {
       ]
     },
     {
-      "style": {
-        "name": "Testing",
-        "top_text": "WIP: 1",
-        "order": 3
-      },
+      "name": "Testing",
+      "top_text": "WIP: 1",
+      "order": 3,
       "sle": { "step1": 3, "step2": 6, "step3": 9, "step4": 15 },
       "items": [
         {
