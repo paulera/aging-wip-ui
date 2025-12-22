@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useLayoutEffect, useEffect } from 'react';
-import { Info, Bug, CheckSquare, Bookmark, Filter, ArrowRight, Link as LinkIcon, Check, ChevronDown, X } from 'lucide-react';
+import { Info, Filter, ArrowRight, Link as LinkIcon, Check, ChevronDown, X } from 'lucide-react';
 
 // --- Mock Data ---
 const MOCK_DATA = {
@@ -8,6 +8,24 @@ const MOCK_DATA = {
   "board_url": "#",
   "min_days": 0,
   "max_days": 30,
+  "theme": {
+    "theme_name": "Default Theme",
+    "theme_author_name": "System",
+    "theme_author_email": "system@example.com",
+    "sle_colors": ["#86efac", "#fef08a", "#fde047", "#fdba74", "#fca5a5"],
+    "types": {
+      "Task": { "color": "#3b82f6", "borderColor": "#2563eb", "icon": "1390" },
+      "Bug": { "color": "#ef4444", "borderColor": "#dc2626", "icon": "BU" },
+      "Story": { "color": "#10b981", "borderColor": "#059669", "icon": "US" }
+    },
+    "priorities": {
+      "Highest": "H",
+      "High": "M",
+      "Medium": "L",
+      "Low": "L",
+      "Lowest": "L"
+    }
+  },
   "features": {
     "dependencies": {
       "enabled": true,
@@ -18,21 +36,14 @@ const MOCK_DATA = {
     },
     "filters": {
       "enabled": true,
-      "fields": ["type", "assignee", "label", "parent"] 
+      "fields": ["type", "assignee", "label", "parent", "priority"] 
     }
   },
   "columns": [
     {
-      "style": {
-        "name": "Analysis Active",
-        "top_text": "WIP: 3",
-        "order": 1,
-        "step1_color": "#86efac",
-        "step2_color": "#fef08a",
-        "step3_color": "#fde047",
-        "step4_color": "#fdba74",
-        "step5_color": "#fca5a5"
-      },
+      "name": "Analysis Active",
+      "top_text": "WIP: 3",
+      "order": 1,
       "sle": { "step1": 2, "step2": 5, "step3": 7, "step4": 12 },
       "items": [
         {
@@ -40,27 +51,35 @@ const MOCK_DATA = {
           "title": "Database Schema Review",
           "type": "Task",
           "age": 1,
+          "priority": "High",
+          "urgency": 3,
           "assignee": { "name": "Alice Dev", "picture": "", "link": "#" },
           "labels": ["Backend", "DB"],
           "parent": { "key": "EPIC-1", "title": "Backend Overhaul", "url": "#" },
-          "url": "https://jira.company.com/browse/KAN-202"
+          "url": "https://jira.company.com/browse/KAN-202",
+          "label": "202"
         },
         {
           "key": "KAN-205",
           "title": "Login Auth Bug",
           "type": "Bug",
           "age": 13,
+          "priority": "Highest",
+          "urgency": 4,
           "assignee": { "name": "Bob QA", "picture": "", "link": "#" },
           "labels": ["Security"],
           "parent": { "key": "EPIC-2", "title": "Security Audit", "url": "#" },
           "url": "https://jira.company.com/browse/KAN-205",
-          "depends_on": "KAN-202"
+          "depends_on": "KAN-202",
+          "label": "205"
         },
         {
           "key": "KAN-206",
           "title": "Legacy Cleanup",
           "type": "Task",
           "age": 4,
+          "priority": "Low",
+          "urgency": 1,
           "assignee": { "name": "Charlie", "picture": "", "link": "#" },
           "labels": ["Tech Debt"],
           "parent": { "key": "EPIC-1", "title": "Backend Overhaul", "url": "#" },
@@ -69,16 +88,9 @@ const MOCK_DATA = {
       ]
     },
     {
-      "style": {
-        "name": "Dev Active",
-        "top_text": "WIP: 2",
-        "order": 2,
-        "step1_color": "#86efac",
-        "step2_color": "#fef08a",
-        "step3_color": "#fde047",
-        "step4_color": "#fdba74",
-        "step5_color": "#fca5a5"
-      },
+      "name": "Dev Active",
+      "top_text": "WIP: 2",
+      "order": 2,
       "sle": { "step1": 5, "step2": 10, "step3": 15, "step4": 20 },
       "items": [
          {
@@ -86,17 +98,22 @@ const MOCK_DATA = {
           "title": "API Integration",
           "type": "Story",
           "age": 8,
+          "priority": "Medium",
+          "urgency": 2,
           "assignee": { "name": "Diana", "picture": "", "link": "#" },
           "labels": ["Frontend"],
           "parent": { "key": "EPIC-3", "title": "Frontend Revamp", "url": "#" },
           "url": "https://jira.company.com/browse/KAN-301",
-          "depends_on": "KAN-206"
+          "depends_on": "KAN-206",
+          "label": "301"
         },
         {
           "key": "KAN-305",
           "title": "Performance Tuning",
           "type": "Task",
           "age": 22,
+          "priority": "High",
+          "urgency": 3,
           "assignee": { "name": "Evan", "picture": "", "link": "#" },
           "labels": ["Ops"],
           "parent": { "key": "EPIC-3", "title": "Frontend Revamp", "url": "#" },
@@ -105,16 +122,9 @@ const MOCK_DATA = {
       ]
     },
     {
-      "style": {
-        "name": "Testing",
-        "top_text": "WIP: 1",
-        "order": 3,
-        "step1_color": "#86efac",
-        "step2_color": "#fef08a",
-        "step3_color": "#fde047",
-        "step4_color": "#fdba74",
-        "step5_color": "#fca5a5"
-      },
+      "name": "Testing",
+      "top_text": "WIP: 1",
+      "order": 3,
       "sle": { "step1": 8, "step2": 12, "step3": 17, "step4": 25 },
       "items": [
         {
@@ -122,11 +132,14 @@ const MOCK_DATA = {
           "title": "Critical Fix",
           "type": "Bug",
           "age": 28,
+          "priority": "Highest",
+          "urgency": 4,
           "assignee": { "name": "Fiona", "picture": "", "link": "#" },
           "labels": ["Urgent"],
           "parent": { "key": "EPIC-9", "title": "Q3 Goals", "url": "#" },
           "url": "https://jira.company.com/browse/KAN-101",
-          "depends_on": "KAN-305"
+          "depends_on": "KAN-305",
+          "label": "101"
         }
       ]
     }
@@ -182,7 +195,7 @@ const calculateLayout = (filteredColumns, maxDays) => {
 
 // --- Components ---
 
-const SmartTooltip = ({ item, dependency, position }) => {
+const SmartTooltip = ({ item, dependency, position, theme }) => {
   const tooltipRef = useRef(null);
   const [adjustedStyle, setAdjustedStyle] = useState({ 
     visibility: 'hidden', 
@@ -217,6 +230,8 @@ const SmartTooltip = ({ item, dependency, position }) => {
 
   if (!item || !position) return null;
 
+  const priorityEmoji = theme.priorities[item.priority] || '';
+
   return (
     <div 
       ref={tooltipRef}
@@ -234,6 +249,18 @@ const SmartTooltip = ({ item, dependency, position }) => {
       </div>
       <p className="text-sm font-medium text-slate-700 leading-tight mb-2">{item.title}</p>
       
+      {item.priority && (
+        <div className="mb-2 pb-2 border-b border-slate-100">
+           <div className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider flex items-center gap-1">
+             Priority
+           </div>
+           <div className="text-xs text-slate-700 font-medium flex items-center gap-1">
+             <span>{priorityEmoji}</span>
+             <span>{item.priority}</span>
+           </div>
+        </div>
+      )}
+
       {item.parent && (
         <div className="mb-2 pb-2 border-b border-slate-100">
            <div className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider flex items-center gap-1">
@@ -265,7 +292,7 @@ const SmartTooltip = ({ item, dependency, position }) => {
 
       <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
         <div className="w-5 h-5 bg-indigo-100 rounded-full flex items-center justify-center text-[10px] text-indigo-700 font-bold">
-            {item.assignee.picture ? <img src={item.assignee.picture} className="w-full h-full rounded-full" /> : item.assignee.name[0]}
+            {item.assignee.picture ? <img src={item.assignee.picture} className="w-full h-full rounded-full" alt={item.assignee.name} /> : item.assignee.name[0]}
         </div>
         <span className="text-xs text-slate-500">{item.assignee.name}</span>
       </div>
@@ -273,25 +300,15 @@ const SmartTooltip = ({ item, dependency, position }) => {
   );
 };
 
-const ItemDot = ({ layout, layoutMap, setTooltipData }) => {
+const ItemDot = ({ layout, layoutMap, setTooltipData, theme }) => {
   const { item, localXPct, y } = layout;
   const [hovered, setHovered] = useState(false);
 
-  const getIcon = (type) => {
-    switch(type.toLowerCase()) {
-      case 'bug': return <Bug size={12} className="text-white" />;
-      case 'story': return <Bookmark size={12} className="text-white" />;
-      default: return <CheckSquare size={12} className="text-white" />;
-    }
-  };
-
-  const getColor = (type) => {
-    switch(type.toLowerCase()) {
-      case 'bug': return 'bg-red-500 border-red-700';
-      case 'story': return 'bg-green-600 border-green-800';
-      default: return 'bg-blue-500 border-blue-700';
-    }
-  };
+  const typeConfig = theme.types[item.type] || { color: "#6b7280", borderColor: "#4b5563", icon: "?" };
+  const borderWidth = 1 + (item.urgency || 0) * 3;
+  
+  // Use item.label if defined, otherwise use type icon
+  const displayText = item.label || typeConfig.icon;
 
   const handleMouseEnter = (e) => {
     setHovered(true);
@@ -328,8 +345,18 @@ const ItemDot = ({ layout, layoutMap, setTooltipData }) => {
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <div className={`w-6 h-6 rounded-full shadow-sm border-2 flex items-center justify-center transition-transform duration-200 ${hovered ? 'scale-125 z-50' : 'scale-100 z-10'} relative ${getColor(item.type)}`}>
-           {getIcon(item.type)}
+        <div 
+          className={`w-8 h-8 rounded-full shadow-sm flex items-center justify-center transition-transform duration-200 ${hovered ? 'scale-125 z-50' : 'scale-100 z-10'} relative`}
+          style={{ 
+            backgroundColor: typeConfig.color,
+            borderWidth: `${borderWidth}px`,
+            borderStyle: 'solid',
+            borderColor: typeConfig.borderColor,
+            filter: 'brightness(0.9)',
+            boxSizing: 'content-box'
+          }}
+        >
+           <span className="text-white text-[10px] font-bold">{displayText}</span>
         </div>
         {item.depends_on && (
           <div className="absolute -top-1 -right-1 w-2 h-2 bg-slate-800 rounded-full border border-white" title="Has dependency"></div>
@@ -427,7 +454,7 @@ const FilterBar = ({ config, columns, activeFilters, onFilterChange, dependencyC
 
       {config.fields.map(field => {
         const options = getUniqueValues(columns, field);
-        const label = field.charAt(0).toUpperCase() + field.slice(1) + 's';
+        const label = field.charAt(0).toUpperCase() + field.slice(1);
         
         return (
           <MultiSelect
@@ -455,7 +482,13 @@ const FilterBar = ({ config, columns, activeFilters, onFilterChange, dependencyC
       {dependencyConfig.show_toggle && (
          <div className="flex items-center gap-2 ml-4 pl-4 border-l border-slate-200">
            <label className="flex items-center cursor-pointer relative">
-             <input type="checkbox" checked={showArrows} onChange={() => setShowArrows(!showArrows)} className="sr-only peer" />
+             <input 
+               type="checkbox" 
+               name="show-dependencies"
+               checked={showArrows} 
+               onChange={() => setShowArrows(!showArrows)} 
+               className="sr-only peer" 
+             />
              <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
              <span className="ml-2 text-sm text-slate-600 font-medium flex items-center gap-1">
                 Show Dependencies <ArrowRight size={14} className="text-slate-400"/>
@@ -473,9 +506,9 @@ const getDataFromURL = () => {
     const dataParam = params.get('data');
     
     if (dataParam) {
-      // Try Base64 decoding first
+      // Try Base64 decoding first (with UTF-8 support)
       try {
-        const decoded = atob(dataParam);
+        const decoded = decodeURIComponent(escape(atob(dataParam)));
         return JSON.parse(decoded);
       } catch {
         // Fall back to URL decoding
@@ -495,7 +528,7 @@ export default function App() {
   // Load data from URL or fall back to mock data
   const [data] = useState(() => getDataFromURL() || MOCK_DATA);
 
-  const { title, subtitle, max_days, columns, board_url, features } = data;
+  const { title, subtitle, max_days, columns, board_url, features, theme } = data;
   const [tooltipData, setTooltipData] = useState(null);
   const [activeFilters, setActiveFilters] = useState({});
   const [showArrows, setShowArrows] = useState(features.dependencies.default_visible);
@@ -509,7 +542,8 @@ export default function App() {
     }
     
     const prettyJson = JSON.stringify(data, null, 2);
-    const base64 = btoa(JSON.stringify(data));
+    // Fix: Encode to UTF-8 bytes first, then base64
+    const base64 = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
     const commentText = `\n${'='.repeat(80)}\nDATA (JSON):\n${'='.repeat(80)}\n${prettyJson}\n\n${'='.repeat(80)}\nDATA (BASE64):\n${'='.repeat(80)}\n${base64}\n${'='.repeat(80)}\n`;
     const comment = document.createComment(commentText);
     document.documentElement.insertBefore(comment, document.documentElement.firstChild);
@@ -533,7 +567,7 @@ export default function App() {
             // Check if item has ANY of the selected labels
             if (item.labels?.some(l => activeValues.includes(l))) hasMatch = true;
           } else {
-            // Generic check (type, etc)
+            // Generic check (type, priority, etc)
             if (activeValues.includes(item[key])) hasMatch = true;
           }
 
@@ -614,6 +648,19 @@ export default function App() {
     }
   };
 
+  // Generate legend from theme types
+  const typeLegend = Object.entries(theme.types).map(([typeName, config]) => (
+    <div key={typeName} className="flex items-center gap-2 text-sm text-slate-600">
+      <div 
+        className="w-3 h-3 rounded flex items-center justify-center text-[8px]" 
+        style={{ backgroundColor: config.color, color: 'white' }}
+      >
+        {config.icon}
+      </div> 
+      {typeName}
+    </div>
+  ));
+
   return (
     <div className="w-full min-h-screen bg-slate-50 p-8 font-sans relative">
       <div className="mb-6 flex justify-between items-end">
@@ -665,7 +712,7 @@ export default function App() {
                 {/* Layer 1: Columns (Backgrounds) - Z-0 */}
                 <div className="flex w-full h-full relative z-0">
                     {filteredColumns
-                        .sort((a, b) => a.style.order - b.style.order)
+                        .sort((a, b) => a.order - b.order)
                         .map((col, colIndex) => (
                         <StatusColumn 
                             key={colIndex} 
@@ -673,6 +720,7 @@ export default function App() {
                             maxDays={max_days} 
                             layoutMap={layoutMap}
                             setTooltipData={setTooltipData}
+                            theme={theme}
                         />
                     ))}
                 </div>
@@ -683,10 +731,8 @@ export default function App() {
         </div>
       </div>
 
-      <div className="mt-6 flex gap-6 justify-center">
-        <div className="flex items-center gap-2 text-sm text-slate-600"><div className="w-3 h-3 rounded bg-blue-500"></div> Task</div>
-        <div className="flex items-center gap-2 text-sm text-slate-600"><div className="w-3 h-3 rounded bg-red-500"></div> Bug</div>
-        <div className="flex items-center gap-2 text-sm text-slate-600"><div className="w-3 h-3 rounded bg-green-600"></div> Story</div>
+      <div className="mt-6 flex gap-6 justify-center flex-wrap">
+        {typeLegend}
       </div>
 
       {/* Smart Tooltip (Fixed position, boundary aware) */}
@@ -694,28 +740,69 @@ export default function App() {
         <SmartTooltip 
           item={tooltipData.item} 
           dependency={tooltipData.dependency}
-          position={tooltipData.position} 
+          position={tooltipData.position}
+          theme={theme}
         />
       )}
     </div>
   );
 }
 
-const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData }) => {
-  const { style, sle, items } = columnData;
+const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme }) => {
+  const { name, top_text, sle, items } = columnData;
+  
+  // Build SLE zones dynamically based on theme colors and column SLE config
+  const sleSteps = Object.keys(sle).sort((a, b) => {
+    const numA = parseInt(a.replace('step', ''));
+    const numB = parseInt(b.replace('step', ''));
+    return numA - numB;
+  });
+  
+  const zones = [];
+  let prevValue = 0;
+  
+  sleSteps.forEach((step, index) => {
+    const stepValue = sle[step];
+    const colorIndex = index;
+    const color = theme.sle_colors[colorIndex] || 'transparent';
+    
+    zones.push({
+      start: prevValue,
+      end: stepValue,
+      color: color
+    });
+    
+    prevValue = stepValue;
+  });
+  
+  // Add final zone (from last step to max_days)
+  const lastColorIndex = sleSteps.length;
+  const lastColor = theme.sle_colors[lastColorIndex] || 'transparent';
+  zones.push({
+    start: prevValue,
+    end: maxDays,
+    color: lastColor,
+    isTop: true
+  });
+
   return (
     <div className="flex-1 flex flex-col min-w-[150px] border-r border-slate-200 last:border-r-0 relative z-0">
       <div className="h-16 border-b border-slate-200 bg-slate-50 p-2 flex flex-col items-center justify-center text-center z-10">
-        <span className="text-xs text-slate-500 font-mono mb-1">{style.top_text}</span>
+        <span className="text-xs text-slate-500 font-mono mb-1">{top_text}</span>
       </div>
 
       <div className="relative flex-1 w-full bg-slate-100 overflow-hidden">
         <div className="absolute inset-0 flex flex-col-reverse">
-           <SLEZone start={0} end={sle.step1} maxDays={maxDays} color={style.step1_color} />
-           <SLEZone start={sle.step1} end={sle.step2} maxDays={maxDays} color={style.step2_color} />
-           <SLEZone start={sle.step2} end={sle.step3} maxDays={maxDays} color={style.step3_color} />
-           <SLEZone start={sle.step3} end={sle.step4} maxDays={maxDays} color={style.step4_color} />
-           <SLEZone start={sle.step4} end={maxDays} maxDays={maxDays} color={style.step5_color} isTop />
+           {zones.map((zone, idx) => (
+             <SLEZone 
+               key={idx}
+               start={zone.start} 
+               end={zone.end} 
+               maxDays={maxDays} 
+               color={zone.color} 
+               isTop={zone.isTop}
+             />
+           ))}
         </div>
 
         <div className="absolute inset-0 z-20">
@@ -728,13 +815,14 @@ const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData }) => {
                         layout={layout}
                         layoutMap={layoutMap}
                         setTooltipData={setTooltipData}
+                        theme={theme}
                     />
                 );
              })}
         </div>
       </div>
       <div className="h-10 border-t border-slate-200 bg-white flex items-center justify-center">
-        <span className="font-semibold text-slate-700 text-sm">{style.name}</span>
+        <span className="font-semibold text-slate-700 text-sm">{name}</span>
       </div>
     </div>
   );
