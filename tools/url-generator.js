@@ -50,7 +50,7 @@ const data = {
           "age": 1,
           "priority": "High",
           "urgency": 3,
-          "assignee": { "name": "Alice Dev", "picture": "https://i.pravatar.cc/150?img=1", "link": "#" },
+          "assignee": { "name": "Alice Dev", "picture": "https://marketplace.canva.com/EAFltIh8PKg/1/0/1600w/canva-cute-anime-cartoon-illustration-girl-avatar-J7nVyTlhTAE.jpg", "link": "#" },
           "labels": ["Backend", "DB"],
           "parent": { "key": "EPIC-1", "title": "Backend Overhaul", "url": "#" },
           "url": "https://jira.company.com/browse/KAN-202"
