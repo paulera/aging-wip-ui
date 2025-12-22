@@ -1,16 +1,53 @@
-# React + Vite
+# Aging WIP Chart
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Project Overview
 
-Currently, two official plugins are available:
+This is a Kanban board visualization that displays work items aging over time across different workflow columns. It's designed to help teams identify bottlenecks by showing how long items have been in each stage.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Key Features
 
-## React Compiler
+- Aging Visualization: Items are positioned vertically based on their age in days, with color-coded SLE (Service Level Expectation) zones
+- Dependency Tracking: Shows arrows between dependent items (e.g., KAN-205 depends on KAN-202)
+- Multi-field Filtering: Filter by type, assignee, label, and parent epic
+- Data-Driven Configuration: The entire board is configured via JSON data structure
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Technical Stack
 
-## Expanding the ESLint configuration
+- Framework: React 19 with Vite 7
+- Styling: Tailwind CSS 4.x
+- Icons: Lucide React
+- Build: Single-file build output using vite-plugin-singlefile
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Data Flow
+
+The app can load data in two ways:
+
+- URL Parameter: Base64 or URL-encoded JSON via ?data= query parameter (see launch.json)
+- Fallback: Mock data hardcoded in App.jsx
+
+The data structure includes:
+
+- Board metadata (title, subtitle, date range)
+- Feature flags (dependencies, filters)
+- Columns with SLE thresholds and color schemes
+- Work items with metadata (type, assignee, labels, parent epic, dependencies)
+
+### Key Components
+
+- App.jsx: Main component with filtering, layout calculation, and rendering logic
+- StatusColumn: Renders individual workflow columns with SLE zones
+- ItemDot: Interactive work item dots with hover tooltips
+- SmartTooltip: Boundary-aware tooltip with item details
+- MultiSelect: Custom dropdown filter component
+- FilterBar: Filter controls with dependency toggle
+
+### Notable Implementation Details
+
+- Layout uses percentage-based positioning for responsive scaling
+- SVG overlay for dependency arrows with dynamic arrowhead positioning
+- Data is embedded as HTML comment in built output for portability
+- Horizontal scrolling container ensures SVG arrows align with columns even when content overflows
+
+### Build Output
+
+The build process creates a single HTML file (via vite-plugin-singlefile) that's completely self-contained and portable.
