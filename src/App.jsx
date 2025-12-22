@@ -115,7 +115,7 @@ const MOCK_DATA = {
         "step4_color": "#fdba74",
         "step5_color": "#fca5a5"
       },
-      "sle": { "step1": 3, "step2": 6, "step3": 9, "step4": 15 },
+      "sle": { "step1": 8, "step2": 12, "step3": 17, "step4": 25 },
       "items": [
         {
           "key": "KAN-101",
@@ -499,6 +499,21 @@ export default function App() {
   const [tooltipData, setTooltipData] = useState(null);
   const [activeFilters, setActiveFilters] = useState({});
   const [showArrows, setShowArrows] = useState(features.dependencies.default_visible);
+
+  // Inject data as HTML comment
+  useEffect(() => {
+    // Check if comment already exists
+    const firstChild = document.documentElement.firstChild;
+    if (firstChild?.nodeType === 8 && firstChild.nodeValue?.includes('DATA (JSON):')) {
+      return; // Comment already exists
+    }
+    
+    const prettyJson = JSON.stringify(data, null, 2);
+    const base64 = btoa(JSON.stringify(data));
+    const commentText = `\n${'='.repeat(80)}\nDATA (JSON):\n${'='.repeat(80)}\n${prettyJson}\n\n${'='.repeat(80)}\nDATA (BASE64):\n${'='.repeat(80)}\n${base64}\n${'='.repeat(80)}\n`;
+    const comment = document.createComment(commentText);
+    document.documentElement.insertBefore(comment, document.documentElement.firstChild);
+  }, [data]);
 
   const filteredColumns = useMemo(() => {
     return columns.map(col => ({
