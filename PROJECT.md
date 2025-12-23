@@ -5,9 +5,11 @@ A Kanban board visualization tool that displays work items aging over time acros
 ## Features
 
 - **Aging Visualization**: Items positioned vertically based on their age in days
-- **SLE Zones**: Color-coded zones showing service level expectations
+- **SLE Zones**: Color-coded zones showing service level expectations (configurable via theme)
 - **Dependency Tracking**: Visual arrows showing dependencies between work items
-- **Advanced Filtering**: Filter by type, assignee, label, and parent epic
+- **Advanced Filtering**: Filter by type, assignee, label, parent epic, and priority
+- **Priority System**: Visual indicators with urgency-based border widths
+- **Theme System**: Fully customizable themes controlling all visual aspects
 - **Portable Output**: Builds to a single, self-contained HTML file
 - **Data-Driven**: Entire board configured via JSON
 
@@ -89,6 +91,24 @@ The application expects a JSON object with the following structure:
   "board_url": "https://your-board-url.com",
   "min_days": 0,
   "max_days": 30,
+  "theme": {
+    "theme_name": "Default Theme",
+    "theme_author_name": "Your Name",
+    "theme_author_email": "your.email@example.com",
+    "sle_colors": ["#86efac", "#fef08a", "#fde047", "#fdba74", "#fca5a5"],
+    "types": {
+      "Task": { "color": "#3b82f6", "icon": "✓" },
+      "Bug": { "color": "#ef4444", "icon": "🐛" },
+      "Story": { "color": "#10b981", "icon": "📖" }
+    },
+    "priorities": {
+      "Highest": "🔴",
+      "High": "🟠",
+      "Medium": "🟡",
+      "Low": "🟢",
+      "Lowest": "⚪"
+    }
+  },
   "features": {
     "dependencies": {
       "enabled": true,
@@ -99,21 +119,14 @@ The application expects a JSON object with the following structure:
     },
     "filters": {
       "enabled": true,
-      "fields": ["type", "assignee", "label", "parent"]
+      "fields": ["type", "assignee", "label", "parent", "priority"]
     }
   },
   "columns": [
     {
-      "style": {
-        "name": "Column Name",
-        "top_text": "WIP: 3",
-        "order": 1,
-        "step1_color": "#86efac",
-        "step2_color": "#fef08a",
-        "step3_color": "#fde047",
-        "step4_color": "#fdba74",
-        "step5_color": "#fca5a5"
-      },
+      "name": "Column Name",
+      "top_text": "WIP: 3",
+      "order": 1,
       "sle": {
         "step1": 2,
         "step2": 5,
@@ -126,6 +139,8 @@ The application expects a JSON object with the following structure:
           "title": "Work Item Title",
           "type": "Task",
           "age": 5,
+          "priority": "High",
+          "urgency": 3,
           "assignee": {
             "name": "John Doe",
             "picture": "",
@@ -138,7 +153,8 @@ The application expects a JSON object with the following structure:
             "url": "#"
           },
           "url": "https://jira.example.com/browse/ITEM-123",
-          "depends_on": "ITEM-122"
+          "depends_on": "ITEM-122",
+          "label": "123"
         }
       ]
     }
@@ -155,6 +171,16 @@ The application expects a JSON object with the following structure:
 - **min_days** (number): Minimum age for visualization (typically 0)
 - **max_days** (number): Maximum age for visualization scale
 
+#### Theme
+- **theme_name** (string): Name of the theme
+- **theme_author_name** (string): Theme author's name
+- **theme_author_email** (string): Theme author's email
+- **sle_colors** (array): Array of hex colors for SLE zones (shared across all columns)
+- **types** (object): Type definitions mapping type name to:
+  - **color** (string): Hex color for the type
+  - **icon** (string): Emoji or text icon to display
+- **priorities** (object): Priority mappings from priority name to emoji/icon
+
 #### Features
 - **dependencies.enabled** (boolean): Enable/disable dependency arrows
 - **dependencies.show_toggle** (boolean): Show toggle button in UI
@@ -162,20 +188,24 @@ The application expects a JSON object with the following structure:
 - **dependencies.arrow_color** (string): Hex color for arrows
 - **dependencies.arrow_thickness** (number): Arrow stroke width
 - **filters.enabled** (boolean): Enable/disable filter bar
-- **filters.fields** (array): Which fields to filter by (`type`, `assignee`, `label`, `parent`)
+- **filters.fields** (array): Which fields to filter by (`type`, `assignee`, `label`, `parent`, `priority`)
 
 #### Columns
-- **style.name** (string): Column display name
-- **style.top_text** (string): Text shown at top of column (e.g., WIP count)
-- **style.order** (number): Column sort order
-- **style.step1_color** through **step5_color** (string): Hex colors for SLE zones
-- **sle.step1** through **step4** (number): Day thresholds for SLE zones
+- **name** (string): Column display name
+- **top_text** (string): Text shown at top of column (e.g., WIP count)
+- **order** (number): Column sort order
+- **sle** (object): SLE step thresholds (step1, step2, step3, step4)
+  - Colors are pulled from `theme.sle_colors` array
+  - If more steps than colors, remaining steps use transparent
+  - If more colors than steps, extra colors are unused
 
 #### Items
 - **key** (string, required): Unique item identifier
 - **title** (string, required): Item title
-- **type** (string): Item type (`Task`, `Bug`, `Story`)
+- **type** (string): Item type (must match a key in `theme.types`)
 - **age** (number, required): Age in days
+- **priority** (string): Priority level (must match a key in `theme.priorities`)
+- **urgency** (integer): Urgency level (0-4+) - affects border width: `2px + (urgency × 2)`
 - **assignee.name** (string): Assignee name
 - **assignee.picture** (string): URL to profile picture (optional)
 - **assignee.link** (string): URL to assignee profile
@@ -185,6 +215,7 @@ The application expects a JSON object with the following structure:
 - **parent.url** (string): URL to parent item
 - **url** (string): URL to the work item
 - **depends_on** (string, optional): Key of item this depends on
+- **label** (string, optional): Custom label to display on dot (overrides type icon)
 
 ## Development Commands
 
@@ -200,7 +231,7 @@ npm run lint     # Run ESLint
 The project includes launch configurations in [`.vscode/launch.json`](.vscode/launch.json):
 
 1. **Launch with no param**: Opens the app with mock data
-2. **Launch with Team Beta**: Opens with pre-configured sample data
+2. **Launch with Team Beta**: Opens with pre-configured sample data (requires running url-generator)
 
 Press `F5` in VS Code to start debugging.
 
@@ -219,6 +250,27 @@ aging-wip-ui/
 ├── vite.config.js    # Vite configuration
 └── package.json      # Dependencies and scripts
 ```
+
+## Architecture Notes
+
+### Theme System
+The theme system provides complete control over visual styling:
+- **Type definitions**: No hardcoded types - all defined in theme with color and icon
+- **Priority mappings**: Configurable emoji/icon per priority level
+- **SLE colors**: Centralized color palette shared across all columns
+- **Extensible**: Add any number of types or priorities via theme
+
+### Priority & Urgency
+- **Priority**: String value (e.g., "High", "Lowest") - displayed with emoji from theme
+- **Urgency**: Integer value (0-4+) - affects visual weight via border width formula
+- Filtering supports priority field
+
+### SLE Zone Behavior
+- Colors defined in `theme.sle_colors` array
+- Each column's `sle` object defines step thresholds
+- Colors applied in order: `step1` uses `sle_colors[0]`, `step2` uses `sle_colors[1]`, etc.
+- Final zone (above last step) uses `sle_colors[stepCount]`
+- Missing colors default to transparent
 
 ## Troubleshooting
 
@@ -239,9 +291,16 @@ Ensure you're using Node.js 18 or higher:
 node --version
 ```
 
+### UTF-8 Characters in Data
+The app properly handles UTF-8 characters (emojis, special characters) in both JSON and base64 encoding.
+
 ## Contributing
 
-See [`PROJECT.md`](PROJECT.md) for architecture details and development guidelines.
+When contributing theme definitions or new features:
+1. Keep the UI agnostic to specific type/priority names
+2. Document theme structure in data examples
+3. Test with various SLE step counts (fewer/more than colors)
+4. Verify UTF-8 character handling
 
 ## License
 
