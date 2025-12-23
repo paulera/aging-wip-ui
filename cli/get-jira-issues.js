@@ -36,16 +36,16 @@ const DEFAULT_THEME = {
   "theme_author_email": "paulo.amaral@gmail.com",
   "sle_colors": ["#86efac", "#fef08a", "#fde047", "#fdba74", "#fca5a5"],
   "types": {
-    "Task": { "color": "#3b82f6", "borderColor": "#2563eb", "icon": "TA" },
-    "Bug": { "color": "#ef4444", "borderColor": "#dc2626", "icon": "BU" },
-    "Story": { "color": "#10b981", "borderColor": "#059669", "icon": "US" }
+    "Task": { "color": "#3b82f6", "borderColor": "#2563eb", "borderWidth": 1, "icon": "TA" },
+    "Bug": { "color": "#ef4444", "borderColor": "#dc2626", "borderWidth": 2, "icon": "BU" },
+    "Story": { "color": "#10b981", "borderColor": "#059669", "borderWidth": 11, "icon": "US" }
   },
   "priorities": {
     "Highest": "🔴",
     "High": "🟠",
     "Medium": "🟡",
     "Low": "🟢",
-    "Lowest": "⚪"
+    "Lowest": "🔵"
   }
 };
 
@@ -264,18 +264,6 @@ function calculateAge(createdDate, referenceDate) {
   return Math.max(0, diffDays); // Never negative
 }
 
-function extractPriorityUrgency(priority) {
-  // Map Jira priority to urgency level (0-4)
-  const urgencyMap = {
-    'Highest': 4,
-    'High': 3,
-    'Medium': 2,
-    'Low': 1,
-    'Lowest': 0
-  };
-  return urgencyMap[priority?.name] || 2; // Default to medium urgency
-}
-
 function extractDependencies(issue) {
   // Extract "blocks" and "is blocked by" relationships
   const links = issue.fields.issuelinks || [];
@@ -293,13 +281,15 @@ function extractDependencies(issue) {
 function transformIssue(issue, referenceDate, jiraBaseUrl) {
   const fields = issue.fields;
   
+  // Extract numeric part from key (e.g., "PROJ-123" -> "123")
+  const nickname = issue.key.split('-')[1];
+  
   return {
     key: issue.key,
     title: fields.summary,
     type: fields.issuetype?.name || 'Unknown',
     age: calculateAge(fields.created, referenceDate),
     priority: fields.priority?.name || 'Medium',
-    urgency: extractPriorityUrgency(fields.priority),
     assignee: {
       name: fields.assignee?.displayName || 'Unassigned',
       picture: fields.assignee?.avatarUrls?.['48x48'] || '',
@@ -312,7 +302,8 @@ function transformIssue(issue, referenceDate, jiraBaseUrl) {
       url: `${jiraBaseUrl}/browse/${fields.parent.key}`
     } : null,
     url: `${jiraBaseUrl}/browse/${issue.key}`,
-    depends_on: extractDependencies(issue)
+    depends_on: extractDependencies(issue),
+    nickname: nickname
   };
 }
 
@@ -357,10 +348,10 @@ function autoDetectThemeTypes(issues, baseTheme) {
 
   // Generate colors for new types
   const defaultColors = [
-    { color: "#8b5cf6", borderColor: "#7c3aed", icon: "TY" },
-    { color: "#ec4899", borderColor: "#db2777", icon: "TY" },
-    { color: "#f59e0b", borderColor: "#d97706", icon: "TY" },
-    { color: "#14b8a6", borderColor: "#0d9488", icon: "TY" },
+    { color: "#8b5cf6", borderColor: "#7c3aed", borderWidth: 2, icon: "TY" },
+    { color: "#ec4899", borderColor: "#db2777", borderWidth: 2, icon: "TY" },
+    { color: "#f59e0b", borderColor: "#d97706", borderWidth: 2, icon: "TY" },
+    { color: "#14b8a6", borderColor: "#0d9488", borderWidth: 2, icon: "TY" },
   ];
 
   let colorIndex = 0;
