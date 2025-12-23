@@ -12,6 +12,7 @@ This is a Kanban board visualization that displays work items aging over time ac
 - **Priority Support**: Visual indicators showing priority levels with urgency-based border widths
 - **Theme System**: Fully customizable themes controlling all visual aspects (colors, icons, priorities)
 - **Data-Driven Configuration**: The entire board is configured via JSON data structure
+- **Jira Integration**: CLI tool to fetch issues directly from Jira API
 
 ### Technical Stack
 
@@ -19,12 +20,14 @@ This is a Kanban board visualization that displays work items aging over time ac
 - Styling: Tailwind CSS 4.x
 - Icons: Lucide React
 - Build: Single-file build output using vite-plugin-singlefile
+- CLI: Standalone Node.js script (no dependencies)
 
 ### Data Flow
 
 The app can load data in two ways:
 
 - **URL Parameter**: Base64 or URL-encoded JSON via `?data=` query parameter (see [`.vscode/launch.json`](.vscode/launch.json))
+- **CLI Tool**: Fetch live data from Jira using [`cli/get-jira-issues.js`](cli/get-jira-issues.js)
 - **Fallback**: Mock data hardcoded in [`src/App.jsx`](src/App.jsx)
 
 The data structure includes:
@@ -57,3 +60,63 @@ The data structure includes:
 ### Build Output
 
 The build process creates a single HTML file (via vite-plugin-singlefile) that's completely self-contained and portable.
+
+## CLI Tool
+
+### Quick Start
+
+```bash
+# 1. Set up environment
+cd cli
+cp .env.example .env
+# Edit .env with your Jira credentials
+
+# 2. Fetch issues and pipe to file
+node get-jira-issues.js -j "project = MYPROJ AND status != Done" > output.json
+
+# 3. View in browser
+# Load the UI and paste the base64-encoded JSON into the URL parameter
+```
+
+### CLI Usage
+
+```bash
+node cli/get-jira-issues.js -j "JQL QUERY" [options]
+```
+
+**Required:**
+- `-j, --jql <query>` - JQL query to fetch issues
+
+**Options:**
+- `-d, --date <YYYY-MM-DD>` - Reference date for age calculation (default: today)
+- `-t, --theme <path>` - Path to theme JSON file (default: built-in theme)
+- `-v, --verbose` - Verbose logging to stderr
+- `-vv, --debug` - Debug logging to stderr
+- `-vvv, --trace` - Trace logging to stderr
+
+**Environment Variables:**
+Set in `.env` file or environment:
+- `JIRA_URL` - Jira base URL (e.g., https://company.atlassian.net)
+- `JIRA_USER` - Jira email address
+- `JIRA_API_TOKEN` - Jira API token
+
+**Examples:**
+
+```bash
+# Basic usage
+node cli/get-jira-issues.js -j "project = MYPROJ"
+
+# With custom date
+node cli/get-jira-issues.js -j "assignee = currentUser()" -d 2024-01-15
+
+# With custom theme and verbose logging
+node cli/get-jira-issues.js -j "filter = 12345" -t custom-theme.json -v
+
+# Pipe to file
+node cli/get-jira-issues.js -j "project = MYPROJ" > output.json
+
+# Generate base64 for URL
+node cli/get-jira-issues.js -j "project = MYPROJ" | base64
+```
+
+See [`PROJECT.md`](PROJECT.md) for detailed CLI documentation.

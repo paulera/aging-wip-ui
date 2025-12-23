@@ -272,6 +272,162 @@ The theme system provides complete control over visual styling:
 - Final zone (above last step) uses `sle_colors[stepCount]`
 - Missing colors default to transparent
 
+## CLI Tool: Fetching Data from Jira
+
+The project includes a standalone CLI tool that fetches issues directly from Jira's API and transforms them into the JSON format required by the UI.
+
+### Setup
+
+1. **Navigate to CLI directory:**
+   ```bash
+   cd cli
+   ```
+
+2. **Configure credentials:**
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Edit `.env` and fill in your Jira credentials:
+   ```bash
+   JIRA_URL=https://your-company.atlassian.net
+   JIRA_USER=your.email@company.com
+   JIRA_API_TOKEN=your_api_token_here
+   ```
+
+   **Get your API token:** https://id.atlassian.com/manage-profile/security/api-tokens
+
+3. **Test the connection:**
+   ```bash
+   node get-jira-issues.js -j "project = MYPROJ" -v
+   ```
+
+### Usage
+
+**Basic syntax:**
+```bash
+node get-jira-issues.js -j "JQL QUERY" [options]
+```
+
+**Required Parameters:**
+- `-j, --jql <query>` - JQL query to fetch issues
+
+**Optional Parameters:**
+- `-d, --date <YYYY-MM-DD>` - Reference date for age calculations (default: today)
+- `-t, --theme <path>` - Path to custom theme JSON file
+- `-v, --verbose` - Enable verbose logging to stderr
+- `-vv, --debug` - Enable debug logging (includes verbose)
+- `-vvv, --trace` - Enable trace logging (includes debug + verbose)
+- `-h, --help` - Show help message
+
+### Examples
+
+**1. Basic query:**
+```bash
+node cli/get-jira-issues.js -j "project = MYPROJECT AND status != Done"
+```
+
+**2. Filter by assignee with custom date:**
+```bash
+node cli/get-jira-issues.js -j "assignee = currentUser() AND status IN ('In Progress', 'Review')" -d 2024-01-15
+```
+
+**3. Use saved filter:**
+```bash
+node cli/get-jira-issues.js -j "filter = 12345"
+```
+
+**4. Custom theme with verbose output:**
+```bash
+node cli/get-jira-issues.js -j "project = MYPROJ" -t my-theme.json -v
+```
+
+**5. Save output to file:**
+```bash
+node cli/get-jira-issues.js -j "project = MYPROJ" > output.json
+```
+
+**6. Generate base64 for URL parameter:**
+```bash
+# On Linux/macOS:
+node cli/get-jira-issues.js -j "project = MYPROJ" | base64 -w 0
+
+# On Windows (PowerShell):
+node cli/get-jira-issues.js -j "project = MYPROJ" | Out-String | % { [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($_)) }
+```
+
+### Custom Themes
+
+Create a JSON file with your theme configuration:
+
+```json
+{
+  "theme_name": "My Custom Theme",
+  "theme_author_name": "Your Name",
+  "theme_author_email": "your.email@example.com",
+  "sle_colors": ["#86efac", "#fef08a", "#fde047", "#fdba74", "#fca5a5"],
+  "types": {
+    "Task": { "color": "#3b82f6", "borderColor": "#2563eb", "icon": "TA" },
+    "Bug": { "color": "#ef4444", "borderColor": "#dc2626", "icon": "BU" },
+    "Story": { "color": "#10b981", "borderColor": "#059669", "icon": "US" },
+    "Epic": { "color": "#8b5cf6", "borderColor": "#7c3aed", "icon": "EP" }
+  },
+  "priorities": {
+    "Highest": "🔴",
+    "High": "🟠",
+    "Medium": "🟡",
+    "Low": "🟢",
+    "Lowest": "⚪"
+  }
+}
+```
+
+Then use it:
+```bash
+node cli/get-jira-issues.js -j "project = MYPROJ" -t my-theme.json
+```
+
+**Note:** The CLI tool auto-detects issue types and priorities from your Jira data and adds them to the theme if they're not already defined.
+
+### How It Works
+
+1. **Authentication:** Uses Basic Auth with your Jira email and API token
+2. **Data Fetching:** 
+   - Executes your JQL query via `/rest/api/3/search/jql` endpoint
+   - Handles pagination automatically (100 issues per page)
+   - Respects rate limits (100ms delay between requests)
+3. **Transformation:**
+   - Groups issues by status into columns
+   - Calculates age from creation date (will be enhanced later for transition-based aging)
+   - Extracts dependencies from issue links
+   - Maps priorities to urgency levels (0-4)
+4. **Output:** Writes valid JSON to stdout (all logs go to stderr for clean piping)
+
+### Current Limitations (To Be Enhanced)
+
+- **SLE thresholds:** Currently set to 10 days for all steps (will be configurable per column later)
+- **Age calculation:** Based on creation date (will support transition-based calculations later)
+
+### Troubleshooting
+
+**"Missing required configuration" error:**
+- Ensure `.env` file exists in `cli/` directory
+- Verify all three variables are set: `JIRA_URL`, `JIRA_USER`, `JIRA_API_TOKEN`
+
+**"HTTP 401 Unauthorized" error:**
+- Check that your API token is valid
+- Verify your email address is correct
+- Ensure you have permission to access the Jira instance
+
+**"Rate limit exceeded" error:**
+- Wait a few minutes and try again
+- The script automatically adds delays between requests, but Jira has global rate limits
+
+**No issues returned:**
+- Verify your JQL query in Jira's web UI first
+- Check that you have permission to view the issues
+- Use `-v` flag to see detailed logging
+
 ## Troubleshooting
 
 ### Port already in use

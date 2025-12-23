@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useRef, useLayoutEffect, useEffect } from 'react';
-import { Info, Filter, ArrowRight, Link as LinkIcon, Check, ChevronDown, X } from 'lucide-react';
+import { Info, Filter, ArrowRight, Link as LinkIcon, Check, ChevronDown, X, RefreshCw } from 'lucide-react';
 
 // --- Mock Data ---
+
 const MOCK_DATA = {
   "title": "Team Alpha MOCK Data - Aging WIP",
   "subtitle": "As of 2024/06/23",
@@ -14,9 +15,9 @@ const MOCK_DATA = {
     "theme_author_email": "system@example.com",
     "sle_colors": ["#86efac", "#fef08a", "#fde047", "#fdba74", "#fca5a5"],
     "types": {
-      "Task": { "color": "#3b82f6", "borderColor": "#2563eb", "icon": "1390" },
-      "Bug": { "color": "#ef4444", "borderColor": "#dc2626", "icon": "BU" },
-      "Story": { "color": "#10b981", "borderColor": "#059669", "icon": "US" }
+      "Task": { "color": "#3b82f6", "borderColor": "#2563eb", "borderWidth": 1, "icon": "TA" },
+      "Bug": { "color": "#ef4444", "borderColor": "#dc2626", "borderWidth": 2, "icon": "BU" },
+      "Story": { "color": "#10b981", "borderColor": "#059669", "borderWidth": 1, "icon": "US" }
     },
     "priorities": {
       "Highest": "H",
@@ -52,12 +53,11 @@ const MOCK_DATA = {
           "type": "Task",
           "age": 1,
           "priority": "High",
-          "urgency": 3,
           "assignee": { "name": "Alice Dev", "picture": "https://i.pravatar.cc/150?img=10", "link": "#" },
           "labels": ["Backend", "DB"],
           "parent": { "key": "EPIC-1", "title": "Backend Overhaul", "url": "#" },
           "url": "https://jira.company.com/browse/KAN-202",
-          "label": "202"
+          "nickname": "202"
         },
         {
           "key": "KAN-205",
@@ -65,13 +65,12 @@ const MOCK_DATA = {
           "type": "Bug",
           "age": 13,
           "priority": "Highest",
-          "urgency": 4,
           "assignee": { "name": "Bob QA", "picture": "https://i.pravatar.cc/150?img=2", "link": "#" },
           "labels": ["Security"],
           "parent": { "key": "EPIC-2", "title": "Security Audit", "url": "#" },
           "url": "https://jira.company.com/browse/KAN-205",
           "depends_on": "KAN-202",
-          "label": "205"
+          "nickname": "205"
         },
         {
           "key": "KAN-206",
@@ -79,7 +78,6 @@ const MOCK_DATA = {
           "type": "Task",
           "age": 4,
           "priority": "Low",
-          "urgency": 1,
           "assignee": { "name": "Charlie", "picture": "", "link": "#" },
           "labels": ["Tech Debt"],
           "parent": { "key": "EPIC-1", "title": "Backend Overhaul", "url": "#" },
@@ -99,13 +97,12 @@ const MOCK_DATA = {
           "type": "Story",
           "age": 8,
           "priority": "Medium",
-          "urgency": 2,
           "assignee": { "name": "Diana", "picture": "", "link": "#" },
           "labels": ["Frontend"],
           "parent": { "key": "EPIC-3", "title": "Frontend Revamp", "url": "#" },
           "url": "https://jira.company.com/browse/KAN-301",
           "depends_on": "KAN-206",
-          "label": "301"
+          "nickname": "301"
         },
         {
           "key": "KAN-305",
@@ -113,7 +110,6 @@ const MOCK_DATA = {
           "type": "Task",
           "age": 22,
           "priority": "High",
-          "urgency": 3,
           "assignee": { "name": "Evan", "picture": "", "link": "#" },
           "labels": ["Ops"],
           "parent": { "key": "EPIC-3", "title": "Frontend Revamp", "url": "#" },
@@ -133,13 +129,12 @@ const MOCK_DATA = {
           "type": "Bug",
           "age": 28,
           "priority": "Highest",
-          "urgency": 4,
           "assignee": { "name": "Fiona", "picture": "", "link": "#" },
           "labels": ["Urgent"],
           "parent": { "key": "EPIC-9", "title": "Q3 Goals", "url": "#" },
           "url": "https://jira.company.com/browse/KAN-101",
           "depends_on": "KAN-305",
-          "label": "101"
+          "nickname": "101"
         }
       ]
     }
@@ -310,11 +305,22 @@ const ItemDot = ({ layout, layoutMap, setTooltipData, theme }) => {
   const { item, localXPct, y } = layout;
   const [hovered, setHovered] = useState(false);
 
-  const typeConfig = theme.types[item.type] || { color: "#6b7280", borderColor: "#4b5563", icon: "?" };
-  const borderWidth = 1 + (item.urgency || 0) * 3;
+  // Get theme config for the type
+  const typeConfig = theme.types[item.type] || { 
+    color: "#6b7280", 
+    borderColor: "#4b5563", 
+    borderWidth: 2,
+    icon: "?" 
+  };
+
+  // Allow item-level overrides
+  const color = item.color || typeConfig.color;
+  const borderColor = item.borderColor || typeConfig.borderColor;
+  const borderWidth = item.borderWidth !== undefined ? item.borderWidth : typeConfig.borderWidth;
+  const icon = item.icon || typeConfig.icon;
   
-  // Use item.label if defined, otherwise use type icon
-  const displayText = item.label || typeConfig.icon;
+  // Use item.nickname if defined, otherwise use the icon
+  const displayText = item.nickname || icon;
 
   const handleMouseEnter = (e) => {
     setHovered(true);
@@ -354,10 +360,10 @@ const ItemDot = ({ layout, layoutMap, setTooltipData, theme }) => {
         <div 
           className={`w-8 h-8 rounded-full shadow-sm flex items-center justify-center transition-transform duration-200 ${hovered ? 'scale-125 z-50' : 'scale-100 z-10'} relative`}
           style={{ 
-            backgroundColor: typeConfig.color,
+            backgroundColor: color,
             borderWidth: `${borderWidth}px`,
             borderStyle: 'solid',
-            borderColor: typeConfig.borderColor,
+            borderColor: borderColor,
             filter: 'brightness(0.9)',
             boxSizing: 'content-box'
           }}
@@ -532,7 +538,10 @@ const getDataFromURL = () => {
 
 export default function App() {
   // Load data from URL or fall back to mock data
-  const [data] = useState(() => getDataFromURL() || MOCK_DATA);
+  const [data, setData] = useState(() => getDataFromURL() || MOCK_DATA);
+  const [jsonInput, setJsonInput] = useState(() => JSON.stringify(data, null, 2));
+  const [jsonError, setJsonError] = useState(null);
+  const [columnWidths, setColumnWidths] = useState({}); // Track width multiplier per column
 
   const { title, subtitle, max_days, columns, board_url, features, theme } = data;
   const [tooltipData, setTooltipData] = useState(null);
@@ -585,18 +594,22 @@ export default function App() {
   }, [columns, activeFilters]);
 
   const layoutMap = useMemo(() => {
-    return calculateLayout(filteredColumns, max_days);
-  }, [filteredColumns, max_days]);
+    return calculateLayoutWithWidths(filteredColumns, max_days, columnWidths);
+  }, [filteredColumns, max_days, columnWidths]);
+
+  const handleColumnClick = (columnName) => {
+    setColumnWidths(prev => {
+      const currentWidth = prev[columnName] || 1;
+      const nextWidth = currentWidth >= 4 ? 1 : currentWidth + 1;
+      return { ...prev, [columnName]: nextWidth };
+    });
+  };
 
   const renderArrows = () => {
     if (!showArrows || !features.dependencies.enabled) return null;
     const { arrow_color = "#303030", arrow_thickness = 2 } = features.dependencies;
     
     // Dynamic refX calculation:
-    // Dot Radius = 12px. Padding = 2px. Total dist = 14px.
-    // markerUnits = strokeWidth.
-    // refX units = distance / thickness.
-    // markerWidth (10) + distance units.
     const markerRefX = 10 + (14 / arrow_thickness);
 
     const arrows = [];
@@ -654,16 +667,36 @@ export default function App() {
     }
   };
 
+  const handleApplyJson = () => {
+    try {
+      const parsedData = JSON.parse(jsonInput);
+      setData(parsedData);
+      setJsonError(null);
+      // Reset filters and column widths when data changes
+      setActiveFilters({});
+      setColumnWidths({});
+      setShowArrows(parsedData.features.dependencies.default_visible);
+    } catch (error) {
+      setJsonError(`Invalid JSON: ${error.message}`);
+    }
+  };
+
   // Generate legend from theme types
   const typeLegend = Object.entries(theme.types).map(([typeName, config]) => (
-    <div key={typeName} className="flex items-center gap-2 text-sm text-slate-600">
+    <div key={typeName} className="flex items-center gap-3 text-base text-slate-700">
       <div 
-        className="w-3 h-3 rounded flex items-center justify-center text-[8px]" 
-        style={{ backgroundColor: config.color, color: 'white' }}
+        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-sm" 
+        style={{ 
+          backgroundColor: config.color, 
+          borderWidth: `${config.borderWidth || 2}px`,
+          borderStyle: 'solid',
+          borderColor: config.borderColor || config.color,
+          color: 'white' 
+        }}
       >
         {config.icon}
       </div> 
-      {typeName}
+      <span className="font-medium">{typeName}</span>
     </div>
   ));
 
@@ -706,13 +739,8 @@ export default function App() {
            })}
         </div>
 
-        {/* CRITICAL LAYOUT FIX:
-          We need a scrolling container that ensures the SVG overlay AND the columns
-          share the exact same 'scrollWidth'.
-          Using 'w-max' or 'min-w-full' inside 'overflow-x-auto' ensures that if columns grow,
-          the container grows, and the SVG (inset-0) grows with it.
-        */}
-        <div className="relative w-full overflow-x-auto" style={{ height: '500px' }}>
+        {/* CHART HEIGHT: Doubled from 500px to 1000px */}
+        <div className="relative w-full overflow-x-auto" style={{ height: '1000px' }}>
             <div className="relative min-w-full w-max h-full">
                 
                 {/* Layer 1: Columns (Backgrounds) - Z-0 */}
@@ -727,18 +755,52 @@ export default function App() {
                             layoutMap={layoutMap}
                             setTooltipData={setTooltipData}
                             theme={theme}
+                            widthMultiplier={columnWidths[col.name] || 1}
+                            onColumnClick={() => handleColumnClick(col.name)}
                         />
                     ))}
                 </div>
 
-                {/* Layer 2: Arrows - Z-10 (Now inside the growing container) */}
+                {/* Layer 2: Arrows - Z-10 */}
                 {renderArrows()}
             </div>
         </div>
       </div>
 
-      <div className="mt-6 flex gap-6 justify-center flex-wrap">
+      <div className="mt-8 flex gap-8 justify-center flex-wrap">
         {typeLegend}
+      </div>
+
+      {/* JSON Editor Section */}
+      <div className="mt-8 bg-white border border-slate-200 rounded-xl shadow-sm p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold text-slate-800">Data Editor</h2>
+          <button
+            onClick={handleApplyJson}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium text-sm"
+          >
+            <RefreshCw size={16} />
+            Apply Changes
+          </button>
+        </div>
+
+        {jsonError && (
+          <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+            <strong>Error:</strong> {jsonError}
+          </div>
+        )}
+
+        <textarea
+          value={jsonInput}
+          onChange={(e) => setJsonInput(e.target.value)}
+          className="w-full h-96 p-3 font-mono text-xs border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
+          spellCheck="false"
+          placeholder="Paste your JSON data here..."
+        />
+
+        <div className="mt-2 text-xs text-slate-500">
+          Tip: Edit the JSON above and click "Apply Changes" to see your modifications reflected in the chart.
+        </div>
       </div>
 
       {/* Smart Tooltip (Fixed position, boundary aware) */}
@@ -754,7 +816,47 @@ export default function App() {
   );
 }
 
-const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme }) => {
+// Updated calculateLayout to support dynamic column widths
+const calculateLayoutWithWidths = (filteredColumns, maxDays, columnWidths) => {
+  const layoutMap = new Map();
+  
+  // Calculate total width units
+  let totalWidthUnits = 0;
+  filteredColumns.forEach(col => {
+    const multiplier = columnWidths[col.name] || 1;
+    totalWidthUnits += multiplier;
+  });
+
+  let currentXOffset = 0;
+
+  filteredColumns.forEach((col) => {
+    const multiplier = columnWidths[col.name] || 1;
+    const colWidthPct = (multiplier / totalWidthUnits) * 100;
+    
+    const items = col.items;
+    const count = items.length;
+    const spread = 80; // 80% of column width
+    const offset = 10; // 10% padding left
+
+    items.forEach((item, itemIndex) => {
+      let localXPct = 50;
+      if (count > 1) {
+        localXPct = offset + (itemIndex / (count - 1)) * spread;
+      }
+      const globalXPct = currentXOffset + (localXPct * colWidthPct / 100);
+      const effectiveAge = Math.min(item.age, maxDays);
+      const globalYPct = (effectiveAge / maxDays) * 100;
+
+      layoutMap.set(item.key, { x: globalXPct, y: globalYPct, item, localXPct });
+    });
+
+    currentXOffset += colWidthPct;
+  });
+
+  return layoutMap;
+};
+
+const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, widthMultiplier = 1, onColumnClick }) => {
   const { name, top_text, sle, items } = columnData;
   
   // Build SLE zones dynamically based on theme colors and column SLE config
@@ -791,8 +893,23 @@ const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme })
     isTop: true
   });
 
+  // Base width 225px * multiplier
+  const baseWidth = 225;
+  const width = baseWidth * widthMultiplier;
+
+  // Format column name with angle brackets based on width multiplier
+  const formatColumnName = (name, multiplier) => {
+    if (multiplier === 1) return name;
+    const brackets = '<'.repeat(multiplier - 1);
+    const closeBrackets = '>'.repeat(multiplier - 1);
+    return `${brackets} ${name} ${closeBrackets}`;
+  };
+
   return (
-    <div className="flex-1 flex flex-col min-w-[150px] border-r border-slate-200 last:border-r-0 relative z-0">
+    <div 
+      className="flex-1 flex flex-col border-r border-slate-200 last:border-r-0 relative z-0 transition-all duration-300"
+      style={{ minWidth: `${width}px`, flexBasis: `${width}px` }}
+    >
       <div className="h-16 border-b border-slate-200 bg-slate-50 p-2 flex flex-col items-center justify-center text-center z-10">
         <span className="text-xs text-slate-500 font-mono mb-1">{top_text}</span>
       </div>
@@ -827,9 +944,15 @@ const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme })
              })}
         </div>
       </div>
-      <div className="h-10 border-t border-slate-200 bg-white flex items-center justify-center">
-        <span className="font-semibold text-slate-700 text-sm">{name}</span>
-      </div>
+      
+      <button
+        onClick={onColumnClick}
+        className="h-10 border-t border-slate-200 bg-white hover:bg-blue-50 flex items-center justify-center transition-colors cursor-pointer group"
+      >
+        <span className="font-semibold text-slate-700 text-sm group-hover:text-blue-600 transition-colors">
+          {formatColumnName(name, widthMultiplier)}
+        </span>
+      </button>
     </div>
   );
 };

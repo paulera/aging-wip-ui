@@ -1,0 +1,18 @@
+{
+  "theme_name": "CLI theme",
+  "theme_author_name": "Paulo Amaral",
+  "theme_author_email": "paulo.amaral@gmail.com",
+  "sle_colors": ["#86efac", "#fef08a", "#fde047", "#fdba74", "#fca5a5"],
+  "types": {
+    "Task": { "color": "#3b82f6", "borderColor": "#2563eb", "icon": "TA" },
+    "Bug": { "color": "#ef4444", "borderColor": "#dc2626", "icon": "BU" },
+    "Story": { "color": "#10b981", "borderColor": "#059669", "icon": "US" }
+  },
+  "priorities": {
+    "Highest": "🔴",
+    "High": "🟠",
+    "Medium": "🟡",
+    "Low": "🟢",
+    "Lowest": "⚪"
+  }
+}
