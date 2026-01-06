@@ -1101,6 +1101,21 @@ const PercentileMarker = ({ percentile, days, color, yPosition }) => {
     return hexColor + 'E6'; // Add ~90% opacity
   };
 
+  // Check if marker would be clipped at the top (yPosition > 95%)
+  const isClippedAtTop = yPosition > 95;
+  
+  // Position label in the Y axis area (48px to the left of the column)
+  const labelStyle = isClippedAtTop ? {
+    position: 'absolute',
+    top: '-2.5rem', // Above the chart
+    left: '-3.5rem', // Position in Y axis area
+    transform: 'none',
+  } : {
+    position: 'absolute',
+    left: '-3.5rem', // Position in Y axis area (56px = 3.5rem)
+    transform: 'translateY(-50%)',
+  };
+
   return (
     <div 
       className="absolute left-0 right-0 flex items-center"
@@ -1111,8 +1126,9 @@ const PercentileMarker = ({ percentile, days, color, yPosition }) => {
       
       {/* Label at the left edge (Y axis) */}
       <div 
-        className="absolute left-0 -translate-x-full -translate-y-1/2 ml-2 px-2 py-1 rounded text-xs font-medium whitespace-nowrap shadow-sm"
+        className="px-2 py-1 rounded text-xs font-medium whitespace-nowrap shadow-sm border border-black"
         style={{ 
+          ...labelStyle,
           backgroundColor: lightenColor(color),
           color: '#000'
         }}
