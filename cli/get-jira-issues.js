@@ -1083,15 +1083,32 @@ async function main() {
 // Entry Point
 // ============================================================================
 
-// Check if running as API server
-const args = process.argv.slice(2);
-if (args.includes('--server')) {
-  startServer();
-} else {
-  main().catch(error => {
-    console.error(`Fatal error: ${error.message}`);
-    process.exit(1);
-  });
+// Export functions for library usage
+export {
+  JiraClient,
+  buildOutput,
+  extractUniqueStatusIds,
+  buildStatusCategoryMap,
+  buildStatusNameToIdMap,
+  extractStatusTransitions,
+  calculateSLEsForStatuses,
+  parseWindow,
+  DEFAULT_THEME,
+  VERBOSITY
+};
+
+// Only run main() if executed directly (not imported)
+if (import.meta.url === `file://${process.argv[1]}`) {
+  // Check if running as API server
+  const args = process.argv.slice(2);
+  if (args.includes('--server')) {
+    startServer();
+  } else {
+    main().catch(error => {
+      console.error(`Fatal error: ${error.message}`);
+      process.exit(1);
+    });
+  }
 }
 
 // ============================================================================

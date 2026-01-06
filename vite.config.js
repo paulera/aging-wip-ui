@@ -2,10 +2,17 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { viteSingleFile } from 'vite-plugin-singlefile'
-import { exec } from 'child_process'
-import { promisify } from 'util'
-
-const execAsync = promisify(exec)
+import { 
+  JiraClient, 
+  buildOutput, 
+  extractUniqueStatusIds,
+  buildStatusCategoryMap,
+  buildStatusNameToIdMap,
+  extractStatusTransitions,
+  calculateSLEsForStatuses,
+  parseWindow,
+  DEFAULT_THEME
+} from './cli/get-jira-issues.js'
 
 // Plugin to handle API endpoints
 function apiPlugin() {
@@ -28,45 +35,68 @@ function apiPlugin() {
                 return
               }
 
-              // Set environment variables for CLI tool
-              const env = {
-                ...process.env,
+              // Create config and client
+              const config = {
                 JIRA_URL: params.jiraUrl,
                 JIRA_USER: params.jiraUser,
                 JIRA_API_TOKEN: params.jiraApiToken
               }
-
-              // Build CLI command with only JQL arguments
-              const args = [`-j "${params.jql.replace(/"/g, '\\"')}"`]
               
-              if (params.jqlSLE) args.push(`-s "${params.jqlSLE.replace(/"/g, '\\"')}"`)
-              if (params.sleWindow) args.push(`-w ${params.sleWindow}d`)
-              if (params.columnsOrder) args.push(`-o "${params.columnsOrder.replace(/"/g, '\\"')}"`)
-
-              const cmd = `node cli/get-jira-issues.js ${args.join(' ')}`
-              console.log('Executing:', cmd)
-              console.log('With env:', { JIRA_URL: env.JIRA_URL, JIRA_USER: env.JIRA_USER })
+              const client = new JiraClient(config)
               
-              const { stdout, stderr } = await execAsync(cmd, { env })
+              // Fetch issues
+              const issues = await client.getAllIssues(params.jql)
               
-              if (stderr) {
-                console.log('CLI stderr:', stderr)
+              if (issues.length === 0) {
+                res.statusCode = 200
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ columns: [] }))
+                return
               }
+
+              // Get status metadata
+              const statusIds = extractUniqueStatusIds(issues)
+              const statuses = await client.getStatusesByIds(statusIds)
+              const statusCategoryMap = buildStatusCategoryMap(statuses)
+              const allStatusNameToIdMap = buildStatusNameToIdMap(statuses)
+
+              // Calculate SLEs if requested
+              let slesByStatusId = null
+              if (params.jqlSLE) {
+                const historicalIssues = await client.getAllIssues(params.jqlSLE)
+                if (historicalIssues.length > 0) {
+                  const transitions = extractStatusTransitions(historicalIssues, statusCategoryMap)
+                  const window = parseWindow(params.sleWindow ? `${params.sleWindow}d` : '90d', params.date || new Date().toISOString())
+                  const percentiles = [50, 75, 85, 90]
+                  slesByStatusId = calculateSLEsForStatuses(transitions, window, percentiles)
+                }
+              }
+
+              // Build output
+              const referenceDate = params.date || new Date().toISOString()
+              const chartData = buildOutput(
+                issues,
+                referenceDate,
+                config.JIRA_URL,
+                DEFAULT_THEME,
+                statusCategoryMap,
+                slesByStatusId,
+                params.columnsOrder || null,
+                params.maxDays || null,
+                allStatusNameToIdMap
+              )
               
-              const chartData = JSON.parse(stdout)
               res.statusCode = 200
               res.setHeader('Content-Type', 'application/json')
               res.end(JSON.stringify(chartData))
               
             } catch (error) {
               console.error('API error:', error)
-              console.error('Error details:', error.stderr || error.stdout)
               res.statusCode = 500
               res.setHeader('Content-Type', 'application/json')
               res.end(JSON.stringify({ 
                 error: error.message,
-                stderr: error.stderr,
-                stdout: error.stdout
+                stack: error.stack
               }))
             }
           })

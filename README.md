@@ -28,15 +28,28 @@ This is a Kanban board visualization that displays work items aging over time ac
 
 ## Quick Start
 
+**Development:**
 ```bash
+npm install
 npm run dev
 ```
 
 Then open `http://localhost:5173` in your browser.
 
+**Production:**
+```bash
+npm install
+npm run build
+npm start
+```
+
+Server runs on `http://localhost:3000` (or PORT env variable).
+
+### Routes
+
 - `/` - Main aging chart view
 - `/config` - Jira configuration and chart generation
-- `/api/chart-data` - API endpoint (handled by Vite)
+- `/api/chart-data` - API endpoint (handled by Vite in dev, Express in prod)
 
 ### Data Flow
 
