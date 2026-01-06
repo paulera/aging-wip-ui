@@ -196,8 +196,11 @@ The application expects a JSON object with the following structure:
 - **top_text** (string, optional): Additional text displayed below column name at the top
 - **bottom_text** (string, optional): Additional text displayed below column name at the bottom
 - **order** (number): Column sort order (can be overridden by CLI `--columns-order` parameter)
-- **sle** (object): SLE step thresholds (step1, step2, step3, step4)
-  - Colors are pulled from `theme.sle_colors` array
+- **sle** (array or object or null): Service Level Expectations
+  - **Array format** (recommended): `[7, 12, 15, 20]` - values map to configured percentiles
+  - **Object format** (legacy): `{ "step1": 2, "step2": 5, "step3": 7, "step4": 12 }`
+  - **null**: No SLE data - column displays with neutral gray background
+  - Colors are pulled from `theme.sle_colors` array in sequence
   - If more steps than colors, remaining steps use transparent
   - If more colors than steps, extra colors are unused
 
@@ -205,7 +208,8 @@ The application expects a JSON object with the following structure:
 - **key** (string, required): Unique item identifier
 - **title** (string, required): Item title
 - **type** (string): Item type (must match a key in `theme.types`)
-- **age** (number, required): Age in days
+- **age** (number, required): Age in days since first stable exit from TODO status category
+- **age_in_current_state** (number, optional): Days in current status (displayed as "X of Y days")
 - **priority** (string): Priority level (must match a key in `theme.priorities`)
 - **urgency** (integer): Urgency level (0-4+) - affects border width: `2px + (urgency × 2)`
 - **assignee.name** (string): Assignee name
@@ -317,8 +321,9 @@ node get-jira-issues.js -j "JQL QUERY" [options]
 **Optional Parameters:**
 - `-d, --date <YYYY-MM-DD>` - Reference date for age calculations (default: today)
 - `-t, --theme <path>` - Path to custom theme JSON file
-- `-o, --columns-order <col1,col2,...>` - Comma-separated list of column names to define order
-- `-v, --verbose` - Enable verbose logging to stderr
+- `-o, --columns-order <col1,col2,...>` - Comma-separated list of column names to define order- `-p, --percentiles <list>` - Comma-separated percentiles for SLE calculation (default: 50,75,85,90)
+- `-w, --sle-window <window>` - Window for SLE data: `Xd` (days), `YYYY-MM-DD` (date), or count (default: 90d)
+- `-s, --sle-jql <query>` - JQL query to fetch historical data for SLE calculation- `-v, --verbose` - Enable verbose logging to stderr
 - `-vv, --debug` - Enable debug logging (includes verbose)
 - `-vvv, --trace` - Enable trace logging (includes debug + verbose)
 - `-h, --help` - Show help message
@@ -355,7 +360,23 @@ node cli/get-jira-issues.js -j "project = MYPROJ" -o "Backlog,To Do,In Progress,
 node cli/get-jira-issues.js -j "project = MYPROJ" > output.json
 ```
 
-**6. Generate base64 for URL parameter:**
+**7. Calculate SLEs from last 90 days:**
+```bash
+node cli/get-jira-issues.js \
+  -j "project = MYPROJ AND status != Done" \
+  -s "project = MYPROJ AND status = Done AND resolutiondate >= -90d" \
+  -w 90d -p 50,75,85,90 -v
+```
+
+**8. Calculate SLEs using latest 100 transitions:**
+```bash
+node cli/get-jira-issues.js \
+  -j "project = MYPROJ AND status != Done" \
+  -s "project = MYPROJ AND status = Done" \
+  -w 100 -v
+```
+
+**9. Generate base64 for URL parameter:**
 ```bash
 # On Linux/macOS:
 node cli/get-jira-issues.js -j "project = MYPROJ" | base64 -w 0
@@ -396,6 +417,40 @@ node cli/get-jira-issues.js -j "project = MYPROJ" -t my-theme.json
 ```
 
 **Note:** The CLI tool auto-detects issue types and priorities from your Jira data and adds them to the theme if they're not already defined.
+
+### Service Level Expectations (SLEs)
+
+SLEs are calculated from historical data to show how long items typically spend in each status. This helps identify bottlenecks and set realistic expectations.
+
+**How It Works:**
+
+1. **Fetch Historical Data**: Use `--sle-jql` to specify a query for historical issues (typically completed items)
+2. **Extract Transitions**: Analyze changelog to find all transitions OUT of each status
+3. **Apply Window**: Filter transitions based on `--sle-window`:
+   - `90d`: Transitions in last 90 days before reference date
+   - `2024-01-01`: All transitions from this date forward
+   - `100`: Latest 100 transitions per status
+4. **Calculate Percentiles**: Compute specified percentiles (default: 50th, 75th, 85th, 90th)
+5. **Match to Columns**: Assign calculated SLEs to columns by matching status IDs
+
+**Example:**
+```bash
+# Calculate SLEs from completed items in last 90 days
+node cli/get-jira-issues.js \
+  -j "project = MYPROJ AND status IN ('In Progress', 'Review')" \
+  -s "project = MYPROJ AND status = Done AND resolutiondate >= -90d" \
+  -w 90d -p 50,75,85,90 -vv
+```
+
+**Interpreting Results:**
+- If 85th percentile = 7 days: 85% of items exit this status within 7 days
+- Items older than highest percentile appear in the red zone
+- Without `--sle-jql`, columns show neutral gray (no SLE data)
+
+**Age Calculation:**
+- **Total Age**: Days since first stable exit from TODO status category (measures client wait time)
+- **Current State Age**: Days since most recent entry into current status
+- Displayed as "X of Y days" when different (e.g., "3 of 15 days")
 
 ### How It Works
 
