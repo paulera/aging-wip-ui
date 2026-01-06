@@ -456,7 +456,7 @@ const MultiSelect = ({ label, options, selectedValues = [], onChange, isOpen, on
   );
 };
 
-const FilterBar = ({ config, columns, activeFilters, onFilterChange, dependencyConfig, showArrows, setShowArrows }) => {
+const FilterBar = ({ config, columns, activeFilters, onFilterChange, dependencyConfig, showArrows, setShowArrows, showSLEZones, setShowSLEZones, showSLEValues, setShowSLEValues }) => {
   const [openDropdown, setOpenDropdown] = useState(null);
 
   if (!config.enabled) return null;
@@ -512,6 +512,36 @@ const FilterBar = ({ config, columns, activeFilters, onFilterChange, dependencyC
            </label>
          </div>
       )}
+
+      <div className="flex items-center gap-2 ml-4 pl-4 border-l border-slate-200">
+        <label className="flex items-center cursor-pointer relative">
+          <input 
+            type="checkbox" 
+            name="show-sle-zones"
+            checked={showSLEZones} 
+            onChange={() => setShowSLEZones(!showSLEZones)} 
+            className="sr-only peer" 
+          />
+          <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+          <span className="ml-2 text-sm text-slate-600 font-medium">
+            Show SLE Zones
+          </span>
+        </label>
+        
+        <label className="flex items-center cursor-pointer relative ml-4">
+          <input 
+            type="checkbox" 
+            name="show-sle-values"
+            checked={showSLEValues} 
+            onChange={() => setShowSLEValues(!showSLEValues)} 
+            className="sr-only peer" 
+          />
+          <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+          <span className="ml-2 text-sm text-slate-600 font-medium">
+            Show SLE Values
+          </span>
+        </label>
+      </div>
     </div>
   );
 };
@@ -551,6 +581,8 @@ export default function App() {
   const [tooltipData, setTooltipData] = useState(null);
   const [activeFilters, setActiveFilters] = useState({});
   const [showArrows, setShowArrows] = useState(features.dependencies.default_visible);
+  const [showSLEZones, setShowSLEZones] = useState(true);
+  const [showSLEValues, setShowSLEValues] = useState(true);
 
   // Inject data as HTML comment
   useEffect(() => {
@@ -680,6 +712,8 @@ export default function App() {
       setActiveFilters({});
       setColumnWidths({});
       setShowArrows(parsedData.features.dependencies.default_visible);
+      setShowSLEZones(true);
+      setShowSLEValues(true);
     } catch (error) {
       setJsonError(`Invalid JSON: ${error.message}`);
     }
@@ -726,6 +760,10 @@ export default function App() {
         dependencyConfig={features.dependencies}
         showArrows={showArrows}
         setShowArrows={setShowArrows}
+        showSLEZones={showSLEZones}
+        setShowSLEZones={setShowSLEZones}
+        showSLEValues={showSLEValues}
+        setShowSLEValues={setShowSLEValues}
       />
 
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 pl-12 relative">
@@ -761,6 +799,8 @@ export default function App() {
                             theme={theme}
                             widthMultiplier={columnWidths[col.name] || 1}
                             onColumnClick={() => handleColumnClick(col.name)}
+                            showSLEZones={showSLEZones}
+                            showSLEValues={showSLEValues}
                         />
                     ))}
                 </div>
@@ -860,7 +900,7 @@ const calculateLayoutWithWidths = (filteredColumns, maxDays, columnWidths) => {
   return layoutMap;
 };
 
-const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, widthMultiplier = 1, onColumnClick }) => {
+const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, widthMultiplier = 1, onColumnClick, showSLEZones = true, showSLEValues = true }) => {
   const { name, top_text, bottom_text, sle, items } = columnData;
   const [isHovered, setIsHovered] = useState(false);
   
@@ -981,21 +1021,23 @@ const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, w
       </div>
 
       <div className="relative flex-1 w-full bg-slate-100 overflow-visible">
-        <div className="absolute inset-0 flex flex-col-reverse">
-           {zones.map((zone, idx) => (
-             <SLEZone 
-               key={idx}
-               start={zone.start} 
-               end={zone.end} 
-               maxDays={maxDays} 
-               color={zone.color} 
-               isTop={zone.isTop}
-             />
-           ))}
-        </div>
+        {showSLEZones && (
+          <div className="absolute inset-0 flex flex-col-reverse">
+             {zones.map((zone, idx) => (
+               <SLEZone 
+                 key={idx}
+                 start={zone.start} 
+                 end={zone.end} 
+                 maxDays={maxDays} 
+                 color={zone.color} 
+                 isTop={zone.isTop}
+               />
+             ))}
+          </div>
+        )}
 
-        {/* Percentile markers - only visible on hover */}
-        {isHovered && percentileMarkers.length > 0 && (
+        {/* Percentile markers - only visible on hover and when enabled */}
+        {showSLEValues && isHovered && percentileMarkers.length > 0 && (
           <div className="absolute inset-0 pointer-events-none z-30">
             {percentileMarkers.map((marker, idx) => (
               <PercentileMarker 
