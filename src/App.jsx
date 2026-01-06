@@ -240,7 +240,11 @@ const SmartTooltip = ({ item, dependency, position, theme }) => {
     >
       <div className="flex justify-between items-start mb-1">
         <span className="font-bold text-slate-800 text-sm">{item.key}</span>
-        <span className="text-xs font-mono bg-slate-100 px-1 rounded text-slate-500">{item.age} days</span>
+        <span className="text-xs font-mono bg-slate-100 px-1 rounded text-slate-500">
+          {item.age_in_current_state !== undefined && item.age_in_current_state !== item.age
+            ? `${item.age_in_current_state} of ${item.age} days`
+            : `${item.age} days`}
+        </span>
       </div>
       <p className="text-sm font-medium text-slate-700 leading-tight mb-2">{item.title}</p>
       

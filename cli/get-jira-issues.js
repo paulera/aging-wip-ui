@@ -222,7 +222,7 @@ class JiraClient {
       'customfield_*' // We'll filter relevant custom fields later
     ];
 
-    const endpoint = `/rest/api/3/search/jql?jql=${encodeURIComponent(jql)}&startAt=${startAt}&maxResults=${MAX_RESULTS_PER_PAGE}&fields=${fields.join(',')}`;
+    const endpoint = `/rest/api/3/search/jql?jql=${encodeURIComponent(jql)}&startAt=${startAt}&maxResults=${MAX_RESULTS_PER_PAGE}&fields=${fields.join(',')}&expand=changelog`;
     
     verbose(`Fetching issues: startAt=${startAt}, maxResults=${MAX_RESULTS_PER_PAGE}`);
     return this.request(endpoint);
@@ -250,6 +250,18 @@ class JiraClient {
     verbose(`Successfully fetched all ${allIssues.length} issues`);
     return allIssues;
   }
+
+  async getStatusesByIds(statusIds) {
+    if (statusIds.length === 0) {
+      return [];
+    }
+    
+    const idsParam = statusIds.map(id => `id=${id}`).join('&');
+    verbose(`Fetching status metadata for ${statusIds.length} statuses...`);
+    const statuses = await this.request(`/rest/api/3/statuses?${idsParam}`);
+    verbose(`Fetched ${statuses.length} status definitions`);
+    return statuses;
+  }
 }
 
 // ============================================================================
@@ -262,6 +274,155 @@ function calculateAge(createdDate, referenceDate) {
   const diffMs = reference - created;
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   return Math.max(0, diffDays); // Never negative
+}
+
+function buildStatusCategoryMap(statuses) {
+  const map = new Map();
+  statuses.forEach(status => {
+    if (status.statusCategory) {
+      map.set(status.id, status.statusCategory.key);
+      // Also map by name for current status lookup
+      map.set(status.name, status.statusCategory.key);
+    }
+  });
+  debug(`Built status category map with ${map.size} entries`);
+  return map;
+}
+
+function extractUniqueStatusIds(issues) {
+  const statusIds = new Set();
+  
+  issues.forEach(issue => {
+    // Add current status ID
+    if (issue.fields.status?.id) {
+      statusIds.add(issue.fields.status.id);
+    }
+    
+    // Add all status IDs from changelog
+    if (issue.changelog?.histories) {
+      issue.changelog.histories.forEach(history => {
+        history.items.forEach(item => {
+          if (item.field === 'status') {
+            if (item.from) statusIds.add(item.from);
+            if (item.to) statusIds.add(item.to);
+          }
+        });
+      });
+    }
+  });
+  
+  const ids = Array.from(statusIds);
+  debug(`Extracted ${ids.length} unique status IDs from issues`);
+  return ids;
+}
+
+function findFirstStableExitFromTodo(changelog, statusCategoryMap) {
+  if (!changelog || !changelog.histories) {
+    return null;
+  }
+
+  // Sort histories chronologically (oldest first)
+  const histories = [...changelog.histories].reverse();
+  
+  let firstExitDate = null;
+  
+  for (let i = 0; i < histories.length; i++) {
+    const history = histories[i];
+    const statusChange = history.items.find(item => item.field === 'status');
+    
+    if (statusChange) {
+      const fromCategory = statusCategoryMap.get(statusChange.from);
+      const toCategory = statusCategoryMap.get(statusChange.to);
+      const changeDate = new Date(history.created);
+      
+      // Found a transition OUT of TODO category
+      if (fromCategory === 'new' && toCategory !== 'new') {
+        debug(`  Found exit from TODO: ${statusChange.fromString} → ${statusChange.toString} on ${history.created}`);
+        
+        // Check if there's a same-day return to TODO
+        let sameDayReturnToTodo = false;
+        
+        for (let j = i + 1; j < histories.length; j++) {
+          const nextHistory = histories[j];
+          const nextStatusChange = nextHistory.items.find(item => item.field === 'status');
+          
+          if (nextStatusChange) {
+            const nextDate = new Date(nextHistory.created);
+            const nextToCategory = statusCategoryMap.get(nextStatusChange.to);
+            
+            // Check if it's the same day
+            if (nextDate.toDateString() === changeDate.toDateString()) {
+              // Check if returning to TODO
+              if (nextToCategory === 'new') {
+                debug(`    Same-day return to TODO found, ignoring this exit`);
+                sameDayReturnToTodo = true;
+                break;
+              }
+            } else {
+              // Different day, stop checking
+              break;
+            }
+          }
+        }
+        
+        // If no same-day return, this is our stable exit
+        if (!sameDayReturnToTodo) {
+          firstExitDate = history.created;
+          debug(`  Using this as stable exit date: ${firstExitDate}`);
+          break;
+        }
+      }
+    }
+  }
+  
+  return firstExitDate;
+}
+
+function findMostRecentTransitionToStatus(changelog, currentStatusId) {
+  if (!changelog || !changelog.histories) {
+    return null;
+  }
+
+  // Histories are typically in reverse chronological order, search from start
+  for (const history of changelog.histories) {
+    const statusChange = history.items.find(item => item.field === 'status');
+    if (statusChange && statusChange.to === currentStatusId) {
+      debug(`  Found most recent transition to current status on ${history.created}`);
+      return history.created;
+    }
+  }
+  
+  return null;
+}
+
+function calculateAgeMetrics(issue, referenceDate, statusCategoryMap) {
+  const currentStatus = issue.fields.status.name;
+  const currentStatusId = issue.fields.status.id;
+  const currentCategory = issue.fields.status.statusCategory?.key;
+  const createdDate = issue.fields.created;
+  
+  debug(`Calculating age for ${issue.key} (status: ${currentStatus}, category: ${currentCategory})`);
+  
+  // Find first stable exit from TODO category
+  const firstStableExit = findFirstStableExitFromTodo(issue.changelog, statusCategoryMap);
+  
+  // Find most recent transition to current status
+  const mostRecentTransition = findMostRecentTransitionToStatus(issue.changelog, currentStatusId);
+  
+  // Calculate ages
+  const ageStartDate = firstStableExit || createdDate;
+  const currentStateStartDate = mostRecentTransition || createdDate;
+  
+  const totalAge = calculateAge(ageStartDate, referenceDate);
+  const currentStateAge = calculateAge(currentStateStartDate, referenceDate);
+  
+  debug(`  Total age: ${totalAge} days (since ${ageStartDate})`);
+  debug(`  Current state age: ${currentStateAge} days (since ${currentStateStartDate})`);
+  
+  return {
+    age: totalAge,
+    age_in_current_state: currentStateAge
+  };
 }
 
 function extractDependencies(issue) {
@@ -278,17 +439,21 @@ function extractDependencies(issue) {
   return blockedBy.length > 0 ? blockedBy[0] : null; // Return first dependency
 }
 
-function transformIssue(issue, referenceDate, jiraBaseUrl) {
+function transformIssue(issue, referenceDate, jiraBaseUrl, statusCategoryMap) {
   const fields = issue.fields;
   
   // Extract numeric part from key (e.g., "PROJ-123" -> "123")
   const nickname = issue.key.split('-')[1];
   
+  // Calculate age metrics using changelog
+  const ageMetrics = calculateAgeMetrics(issue, referenceDate, statusCategoryMap);
+  
   return {
     key: issue.key,
     title: fields.summary,
     type: fields.issuetype?.name || 'Unknown',
-    age: calculateAge(fields.created, referenceDate),
+    age: ageMetrics.age,
+    age_in_current_state: ageMetrics.age_in_current_state,
     priority: fields.priority?.name || 'Medium',
     assignee: {
       name: fields.assignee?.displayName || 'Unassigned',
@@ -384,10 +549,10 @@ function autoDetectThemePriorities(issues, baseTheme) {
   return priorities;
 }
 
-function buildOutput(issues, referenceDate, jiraBaseUrl, theme, columnsOrder = null) {
+function buildOutput(issues, referenceDate, jiraBaseUrl, theme, statusCategoryMap, columnsOrder = null) {
   // Transform issues
   const transformedIssues = issues.map(issue => {
-    const transformed = transformIssue(issue, referenceDate, jiraBaseUrl);
+    const transformed = transformIssue(issue, referenceDate, jiraBaseUrl, statusCategoryMap);
     transformed.status = issue.fields.status.name; // Temporarily add status for grouping
     return transformed;
   });
@@ -624,7 +789,7 @@ async function main() {
   const jira = new JiraClient(config);
 
   try {
-    // Fetch all issues
+    // Fetch all issues first
     verbose(`Executing JQL: ${args.jql}`);
     const issues = await jira.getAllIssues(args.jql);
 
@@ -634,9 +799,16 @@ async function main() {
       return;
     }
 
+    // Extract unique status IDs from issues
+    const statusIds = extractUniqueStatusIds(issues);
+    
+    // Fetch status metadata in bulk
+    const statuses = await jira.getStatusesByIds(statusIds);
+    const statusCategoryMap = buildStatusCategoryMap(statuses);
+    
     // Transform to output format
     verbose('Transforming issues to output format...');
-    const output = buildOutput(issues, args.date, config.JIRA_URL, theme, args.columnsOrder);
+    const output = buildOutput(issues, args.date, config.JIRA_URL, theme, statusCategoryMap, args.columnsOrder);
 
     // Output JSON to stdout
     console.log(JSON.stringify(output, null, 2));
