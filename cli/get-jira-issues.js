@@ -289,6 +289,14 @@ function buildStatusCategoryMap(statuses) {
   return map;
 }
 
+function buildStatusNameToIdMap(statuses) {
+  const map = new Map();
+  statuses.forEach(status => {
+    map.set(status.name, status.id);
+  });
+  return map;
+}
+
 function extractUniqueStatusIds(issues) {
   const statusIds = new Set();
   
@@ -695,7 +703,7 @@ function autoDetectThemePriorities(issues, baseTheme) {
   return priorities;
 }
 
-function buildOutput(issues, referenceDate, jiraBaseUrl, theme, statusCategoryMap, slesByStatusId = null, columnsOrder = null, maxDaysOverride = null) {
+function buildOutput(issues, referenceDate, jiraBaseUrl, theme, statusCategoryMap, slesByStatusId = null, columnsOrder = null, maxDaysOverride = null, allStatusNameToIdMap = null) {
   // Transform issues
   const transformedIssues = issues.map(issue => {
     const transformed = transformIssue(issue, referenceDate, jiraBaseUrl, statusCategoryMap);
@@ -715,6 +723,15 @@ function buildOutput(issues, referenceDate, jiraBaseUrl, theme, statusCategoryMa
     }
   });
   
+  // If we have allStatusNameToIdMap, merge it (prioritize current issues)
+  if (allStatusNameToIdMap) {
+    allStatusNameToIdMap.forEach((id, name) => {
+      if (!statusIdMap.has(name)) {
+        statusIdMap.set(name, id);
+      }
+    });
+  }
+  
   // Create columns with SLE data
   let columns = createColumns(issuesByStatus, slesByStatusId, statusIdMap);
 
@@ -725,6 +742,22 @@ function buildOutput(issues, referenceDate, jiraBaseUrl, theme, statusCategoryMa
     
     // Create a map for quick lookup
     const orderMap = new Map(orderArray.map((name, index) => [name, index]));
+    
+    // Add missing columns from orderArray that don't exist yet
+    orderArray.forEach(statusName => {
+      if (!columns.find(col => col.name === statusName)) {
+        const statusId = statusIdMap.get(statusName);
+        const sles = (statusId && slesByStatusId) ? slesByStatusId.get(statusId) : null;
+        debug(`Creating empty column for: ${statusName}${statusId ? ` (ID: ${statusId})` : ''}`);
+        columns.push({
+          name: statusName,
+          top_text: `WIP: 0`,
+          order: 9999, // Will be updated below
+          sle: sles || null,
+          items: []
+        });
+      }
+    });
     
     // Sort columns based on provided order, keeping unlisted columns at the end
     columns.sort((a, b) => {
@@ -985,14 +1018,11 @@ async function main() {
     }
 
     // Extract unique status IDs from issues
-    const statusIds = extractUniqueStatusIds(issues);
-    
-    // Fetch status metadata in bulk
-    const statuses = await jira.getStatusesByIds(statusIds);
-    const statusCategoryMap = buildStatusCategoryMap(statuses);
+    let statusIds = extractUniqueStatusIds(issues);
     
     // Calculate SLEs if sle-jql is provided
     let slesByStatusId = null;
+    let sleIssues = [];
     if (args.sleJql) {
       verbose('='.repeat(80));
       verbose('Calculating SLEs from historical data...');
@@ -1000,12 +1030,27 @@ async function main() {
       
       // Fetch historical issues for SLE calculation
       verbose(`Executing SLE JQL: ${args.sleJql}`);
-      const sleIssues = await jira.getAllIssues(args.sleJql);
+      sleIssues = await jira.getAllIssues(args.sleJql);
       verbose(`Fetched ${sleIssues.length} issues for SLE calculation`);
       
       if (sleIssues.length > 0) {
-        // Extract status transitions
-        const transitionsByStatusId = extractStatusTransitions(sleIssues, statusCategoryMap);
+        // Extract status IDs from historical issues and merge with current
+        const sleStatusIds = extractUniqueStatusIds(sleIssues);
+        const mergedStatusIds = new Set([...statusIds, ...sleStatusIds]);
+        statusIds = Array.from(mergedStatusIds);
+        debug(`Total unique status IDs (current + historical): ${statusIds.length}`);
+      }
+    }
+    
+    // Fetch status metadata in bulk (includes all statuses from current and historical issues)
+    const statuses = await jira.getStatusesByIds(statusIds);
+    const statusCategoryMap = buildStatusCategoryMap(statuses);
+    const allStatusNameToIdMap = buildStatusNameToIdMap(statuses);
+    
+    // Continue SLE calculation if we have historical data
+    if (args.sleJql && sleIssues.length > 0) {
+      // Extract status transitions
+      const transitionsByStatusId = extractStatusTransitions(sleIssues, statusCategoryMap);
         
         // Parse window
         const window = parseWindow(args.sleWindow, args.date);
@@ -1019,13 +1064,11 @@ async function main() {
       }
       
       verbose('='.repeat(80));
-    } else {
-      debug('No --sle-jql provided, skipping SLE calculation');
     }
     
     // Transform to output format
     verbose('Transforming issues to output format...');
-    const output = buildOutput(issues, args.date, config.JIRA_URL, theme, statusCategoryMap, slesByStatusId, args.columnsOrder, args.maxDays);
+    const output = buildOutput(issues, args.date, config.JIRA_URL, theme, statusCategoryMap, slesByStatusId, args.columnsOrder, args.maxDays, allStatusNameToIdMap);
 
     // Output JSON to stdout
     console.log(JSON.stringify(output, null, 2));
