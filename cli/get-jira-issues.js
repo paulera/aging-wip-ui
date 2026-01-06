@@ -784,10 +784,14 @@ function buildOutput(issues, referenceDate, jiraBaseUrl, theme, statusCategoryMa
   // Calculate max age
   const allAges = allItems.map(item => item.age);
   const calculatedMaxAge = Math.max(...allAges, 30); // At least 30 days
-  const maxAge = maxDaysOverride !== null ? maxDaysOverride : calculatedMaxAge;
+  
+  // Round up to next multiple of 10
+  const calculatedYAxisMax = Math.ceil(calculatedMaxAge / 10) * 10;
+  
+  const maxAge = maxDaysOverride !== null ? maxDaysOverride : calculatedYAxisMax;
   
   if (maxDaysOverride !== null) {
-    debug(`Using custom max_days: ${maxAge} (calculated: ${calculatedMaxAge})`);
+    debug(`Using custom max_days: ${maxAge} (calculated: ${calculatedYAxisMax})`);
   }
 
   return {
