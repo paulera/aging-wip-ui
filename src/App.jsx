@@ -277,20 +277,25 @@ const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin
 
   const priorityEmoji = theme.priorities[item.priority] || '';
   
-  // Get type color and create lighter shade
-  const typeConfig = theme.types[item.type] || { color: "#6b7280" };
-  const typeColor = item.color || typeConfig.color;
+  // Get color based on toggle - either type color or SLE color
+  let cardColor;
+  if (useTypeColor) {
+    const typeConfig = theme.types[item.type] || { color: "#6b7280" };
+    cardColor = item.color || typeConfig.color;
+  } else {
+    cardColor = sleColor || "#6b7280";
+  }
   
   // Convert hex to rgba with low opacity for light shade
-  const hexToRgba = (hex, alpha = 0.3) => {
+  const hexToRgba = (hex, alpha = 1) => {
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
     const b = parseInt(hex.slice(5, 7), 16);
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   };
   
-  const headerBgColor = hexToRgba(typeColor, 0.3);
-  const borderColor = hexToRgba(typeColor, 0.5);
+  const headerBgColor = hexToRgba(cardColor, 0.6);
+  const borderColor = hexToRgba(cardColor, 1);
 
   return (
     <div 
