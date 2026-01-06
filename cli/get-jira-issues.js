@@ -38,7 +38,7 @@ const DEFAULT_THEME = {
   "types": {
     "Task": { "color": "#3b82f6", "borderColor": "#2563eb", "borderWidth": 1, "icon": "TA" },
     "Bug": { "color": "#ef4444", "borderColor": "#dc2626", "borderWidth": 2, "icon": "BU" },
-    "Story": { "color": "#10b981", "borderColor": "#059669", "borderWidth": 11, "icon": "US" }
+    "Story": { "color": "#10b981", "borderColor": "#059669", "borderWidth": 4, "icon": "US" }
   },
   "priorities": {
     "Highest": "🔴",
