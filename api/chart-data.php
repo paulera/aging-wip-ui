@@ -61,7 +61,15 @@ $env = [
     'JIRA_API_TOKEN=' . escapeshellarg($data['jiraApiToken'])
 ];
 
-$cmd = implode(' ', $env) . ' node ' . escapeshellarg($cliPath) . ' -j ' . $jql . ' -s ' . $jqlSLE . ' -w ' . $sleWindow;
+// Find node executable dynamically
+$nodePath = trim(`which node 2>/dev/null`);
+if (empty($nodePath)) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Node.js not found. Please ensure node is installed and in PATH.']);
+    exit;
+}
+
+$cmd = implode(' ', $env) . ' ' . $nodePath . ' ' . escapeshellarg($cliPath) . ' -j ' . $jql . ' -s ' . $jqlSLE . ' -w ' . $sleWindow;
 
 if ($columnsOrder) {
     $cmd .= ' -o ' . $columnsOrder;
