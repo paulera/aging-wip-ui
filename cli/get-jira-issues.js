@@ -20,7 +20,6 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import { URL, fileURLToPath } from 'url';
-import { parseArgs } from 'util';
 
 // ES Module equivalents for __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -814,67 +813,62 @@ function buildOutput(issues, referenceDate, jiraBaseUrl, theme, statusCategoryMa
 }
 
 // ============================================================================
-// CLI Argument Parsing (using Node 18+ parseArgs)
+// CLI Argument Parsing (Node 12+ compatible)
 // ============================================================================
 
 function parseCLIArgs() {
-  const options = {
-    jql: {
-      type: 'string',
-      short: 'j',
-    },
-    date: {
-      type: 'string',
-      short: 'd',
-      default: new Date().toISOString().split('T')[0]
-    },
-    theme: {
-      type: 'string',
-      short: 't',
-    },
-    'columns-order': {
-      type: 'string',
-      short: 'o',
-    },
-    'max-days': {
-      type: 'string',
-      short: 'm',
-    },
-    percentiles: {
-      type: 'string',
-      short: 'p',
-      default: '50,75,85,90'
-    },
-    'sle-window': {
-      type: 'string',
-      short: 'w',
-      default: '90d'
-    },
-    'sle-jql': {
-      type: 'string',
-      short: 's',
-    },    verbose: {
-      type: 'boolean',
-      short: 'v',
-      default: false
-    },
-    help: {
-      type: 'boolean',
-      short: 'h',
-      default: false
-    }
+  const args = process.argv.slice(2);
+  const values = {
+    jql: null,
+    date: new Date().toISOString().split('T')[0],
+    theme: null,
+    'columns-order': null,
+    'max-days': null,
+    percentiles: '50,75,85,90',
+    'sle-window': '90d',
+    'sle-jql': null,
+    verbose: false,
+    help: false
   };
 
-  let parsed;
-  try {
-    parsed = parseArgs({ options, allowPositionals: false, strict: true });
-  } catch (error) {
-    console.error(`Error: ${error.message}`);
-    printHelp();
-    process.exit(1);
+  // Parse arguments manually
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    
+    if (arg === '-h' || arg === '--help') {
+      values.help = true;
+    } else if (arg === '-v' || arg === '--verbose') {
+      values.verbose = true;
+    } else if (arg === '-vv' || arg === '--debug') {
+      values.verbose = 'debug';
+    } else if (arg === '-vvv' || arg === '--trace') {
+      values.verbose = 'trace';
+    } else if ((arg === '-j' || arg === '--jql') && i + 1 < args.length) {
+      values.jql = args[++i];
+    } else if ((arg === '-d' || arg === '--date') && i + 1 < args.length) {
+      values.date = args[++i];
+    } else if ((arg === '-t' || arg === '--theme') && i + 1 < args.length) {
+      values.theme = args[++i];
+    } else if ((arg === '-o' || arg === '--columns-order') && i + 1 < args.length) {
+      values['columns-order'] = args[++i];
+    } else if ((arg === '-m' || arg === '--max-days') && i + 1 < args.length) {
+      values['max-days'] = args[++i];
+    } else if ((arg === '-p' || arg === '--percentiles') && i + 1 < args.length) {
+      values.percentiles = args[++i];
+    } else if ((arg === '-w' || arg === '--sle-window') && i + 1 < args.length) {
+      values['sle-window'] = args[++i];
+    } else if ((arg === '-s' || arg === '--sle-jql') && i + 1 < args.length) {
+      values['sle-jql'] = args[++i];
+    } else if (!arg.startsWith('-')) {
+      console.error(`Error: Unknown positional argument: ${arg}`);
+      printHelp();
+      process.exit(1);
+    } else {
+      console.error(`Error: Unknown option: ${arg}`);
+      printHelp();
+      process.exit(1);
+    }
   }
-
-  const values = parsed.values;
 
   // Handle help
   if (values.help) {
@@ -884,10 +878,9 @@ function parseCLIArgs() {
 
   // Handle verbosity levels
   let verbosity = 0;
-  const rawArgs = process.argv.slice(2);
-  if (rawArgs.includes('-vvv') || rawArgs.includes('--trace')) {
+  if (values.verbose === 'trace') {
     verbosity = 3;
-  } else if (rawArgs.includes('-vv') || rawArgs.includes('--debug')) {
+  } else if (values.verbose === 'debug') {
     verbosity = 2;
   } else if (values.verbose) {
     verbosity = 1;
