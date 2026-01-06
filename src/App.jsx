@@ -1101,34 +1101,21 @@ const PercentileMarker = ({ percentile, days, color, yPosition }) => {
     return hexColor + 'E6'; // Add ~90% opacity
   };
 
-  // Check if marker would be clipped at the top (yPosition > 95%)
-  const isClippedAtTop = yPosition > 95;
-  
-  // Position label in the Y axis area (48px to the left of the column)
-  const labelStyle = isClippedAtTop ? {
-    position: 'absolute',
-    top: '-2.5rem', // Above the chart
-    left: '-3.5rem', // Position in Y axis area
-    transform: 'none',
-  } : {
-    position: 'absolute',
-    left: '-3.5rem', // Position in Y axis area (56px = 3.5rem)
-    transform: 'translateY(-50%)',
-  };
-
   return (
     <div 
-      className="absolute left-0 right-0 flex items-center"
+      className="absolute w-full h-0 pointer-events-none"
       style={{ bottom: `${yPosition}%` }}
     >
       {/* Horizontal line across the column */}
       <div className="absolute left-0 right-0 border-t border-black" style={{ borderWidth: '1px' }}></div>
       
-      {/* Label at the left edge (Y axis) */}
+      {/* Label in the center of the column */}
       <div 
-        className="px-2 py-1 rounded text-xs font-medium whitespace-nowrap shadow-sm border border-black"
+        className="absolute px-2 py-1 rounded text-xs font-medium whitespace-nowrap shadow-sm border border-black"
         style={{ 
-          ...labelStyle,
+          left: '50%',
+          top: '50%',
+          transform: 'translate(-50%, -50%)',
           backgroundColor: lightenColor(color),
           color: '#000'
         }}
