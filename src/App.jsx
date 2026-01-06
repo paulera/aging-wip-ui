@@ -191,7 +191,7 @@ const calculateLayout = (filteredColumns, maxDays) => {
 
 // --- Components ---
 
-const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin, onUpdatePosition, useTypeColor, sleColor }) => {
+const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin, onUpdatePosition, useTypeColor, sleColor, columnName }) => {
   const tooltipRef = useRef(null);
   const [adjustedStyle, setAdjustedStyle] = useState({ 
     visibility: 'hidden', 
@@ -365,17 +365,31 @@ const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin
       <div className="p-3">
       <p className="text-sm font-medium text-slate-700 leading-tight mb-2">{item.title}</p>
       
-      {item.priority && (
-        <div className="mb-2 pb-2 border-b border-slate-100">
-           <div className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider flex items-center gap-1">
-             Priority
-           </div>
-           <div className="text-xs text-slate-700 font-medium flex items-center gap-1">
-             <span>{priorityEmoji}</span>
-             <span>{item.priority}</span>
-           </div>
+      {/* Status and Priority in 2-column layout */}
+      <div className="mb-2 pb-2 border-b border-slate-100 grid grid-cols-2 gap-3">
+        {/* Status column */}
+        <div>
+          <div className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider flex items-center gap-1">
+            Status
+          </div>
+          <div className="text-xs text-slate-700 font-medium">
+            {columnName || 'Unknown'}
+          </div>
         </div>
-      )}
+        
+        {/* Priority column */}
+        {item.priority && (
+          <div>
+            <div className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider flex items-center gap-1">
+              Priority
+            </div>
+            <div className="text-xs text-slate-700 font-medium flex items-center gap-1">
+              <span>{priorityEmoji}</span>
+              <span>{item.priority}</span>
+            </div>
+          </div>
+        )}
+      </div>
 
       {item.parent && (
         <div className="mb-2 pb-2 border-b border-slate-100">
@@ -1235,6 +1249,7 @@ export default function App() {
             onUpdatePosition={updatePinnedPosition}
             useTypeColor={useTypeColorForCards}
             sleColor={sleColor}
+            columnName={itemColumn?.name}
           />
         );
       })}
@@ -1254,6 +1269,10 @@ export default function App() {
           sleColor={(() => {
             const itemColumn = columns.find(col => col.items.some(i => i.key === tooltipData.item.key));
             return itemColumn ? getSLEColorForItem(tooltipData.item, itemColumn) : null;
+          })()}
+          columnName={(() => {
+            const itemColumn = columns.find(col => col.items.some(i => i.key === tooltipData.item.key));
+            return itemColumn?.name;
           })()}
         />
       )}
