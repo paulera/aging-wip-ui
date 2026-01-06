@@ -272,7 +272,9 @@ function calculateAge(createdDate, referenceDate) {
   const reference = new Date(referenceDate);
   const diffMs = reference - created;
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  return Math.max(0, diffDays); // Never negative
+  // ProKanban best practice: work is "Day 1" from the moment it starts
+  // No such thing as "zero days old" - work incurs cost from day one
+  return Math.max(1, diffDays + 1);
 }
 
 function buildStatusCategoryMap(statuses) {
