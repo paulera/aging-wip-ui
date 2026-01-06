@@ -384,7 +384,7 @@ function autoDetectThemePriorities(issues, baseTheme) {
   return priorities;
 }
 
-function buildOutput(issues, referenceDate, jiraBaseUrl, theme) {
+function buildOutput(issues, referenceDate, jiraBaseUrl, theme, columnsOrder = null) {
   // Transform issues
   const transformedIssues = issues.map(issue => {
     const transformed = transformIssue(issue, referenceDate, jiraBaseUrl);
@@ -396,7 +396,28 @@ function buildOutput(issues, referenceDate, jiraBaseUrl, theme) {
   const issuesByStatus = groupByStatus(transformedIssues);
   
   // Create columns
-  const columns = createColumns(issuesByStatus);
+  let columns = createColumns(issuesByStatus);
+
+  // Apply custom column order if provided
+  if (columnsOrder) {
+    const orderArray = columnsOrder.split(',').map(name => name.trim());
+    debug(`Applying custom column order: ${orderArray.join(', ')}`);
+    
+    // Create a map for quick lookup
+    const orderMap = new Map(orderArray.map((name, index) => [name, index]));
+    
+    // Sort columns based on provided order, keeping unlisted columns at the end
+    columns.sort((a, b) => {
+      const orderA = orderMap.has(a.name) ? orderMap.get(a.name) : 9999;
+      const orderB = orderMap.has(b.name) ? orderMap.get(b.name) : 9999;
+      return orderA - orderB;
+    });
+    
+    // Update order property
+    columns.forEach((col, index) => {
+      col.order = index + 1;
+    });
+  }
 
   // Auto-detect types and priorities
   const allItems = columns.flatMap(col => col.items);
@@ -452,6 +473,10 @@ function parseCLIArgs() {
     theme: {
       type: 'string',
       short: 't',
+    },
+    'columns-order': {
+      type: 'string',
+      short: 'o',
     },
     verbose: {
       type: 'boolean',
@@ -510,6 +535,7 @@ function parseCLIArgs() {
     jql: values.jql,
     date: values.date,
     theme: values.theme || null,
+    columnsOrder: values['columns-order'] || null,
     verbosity: verbosity
   };
 }
@@ -522,9 +548,11 @@ Required:
   -j, --jql <query>       JQL query to fetch issues
 
 Options:
-  -d, --date <YYYY-MM-DD> Reference date for age calculation (default: today)
-  -t, --theme <path>      Path to theme JSON file (default: built-in theme)
-  -v, --verbose           Verbose logging
+  -d, --date <YYYY-MM-DD>    Reference date for age calculation (default: today)
+  -t, --theme <path>         Path to theme JSON file (default: built-in theme)
+  -co, --columns-order <col1,col2,...>
+                             Comma-separated list of column names to define order
+  -v, --verbose              Verbose logging
   -vv, --debug            Debug logging (includes verbose)
   -vvv, --trace           Trace logging (includes debug + verbose)
   -h, --help              Show this help message
@@ -608,7 +636,7 @@ async function main() {
 
     // Transform to output format
     verbose('Transforming issues to output format...');
-    const output = buildOutput(issues, args.date, config.JIRA_URL, theme);
+    const output = buildOutput(issues, args.date, config.JIRA_URL, theme, args.columnsOrder);
 
     // Output JSON to stdout
     console.log(JSON.stringify(output, null, 2));
