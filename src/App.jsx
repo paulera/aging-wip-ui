@@ -775,12 +775,48 @@ export default function App() {
 
   const { title, subtitle, max_days, columns, board_url, features, theme } = data;
   const [tooltipData, setTooltipData] = useState(null);
-  const [pinnedItems, setPinnedItems] = useState(new Map()); // Map<itemKey, {item, dependency, position}>
+  const [pinnedItems, setPinnedItems] = useState(() => {
+    try {
+      const stored = localStorage.getItem('pinnedItems');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return new Map(Object.entries(parsed));
+      }
+    } catch (e) {
+      console.error('Failed to load pinned items:', e);
+    }
+    return new Map();
+  }); // Map<itemKey, {item, dependency, position}>
   const [activeFilters, setActiveFilters] = useState({});
   const [showArrows, setShowArrows] = useState(features.dependencies.default_visible);
   const [showSLEZones, setShowSLEZones] = useState(true);
   const [showSLEValues, setShowSLEValues] = useState(true);
   const [useTypeColorForCards, setUseTypeColorForCards] = useState(true);
+
+  // Save pinned items to localStorage
+  useEffect(() => {
+    try {
+      const obj = Object.fromEntries(pinnedItems);
+      localStorage.setItem('pinnedItems', JSON.stringify(obj));
+    } catch (e) {
+      console.error('Failed to save pinned items:', e);
+    }
+  }, [pinnedItems]);
+
+  // ESC key to clear all pinned cards
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (pinnedItems.size > 0) {
+          e.preventDefault();
+          setPinnedItems(new Map());
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [pinnedItems]);
 
   const handleChartGenerated = (chartData) => {
     setData(chartData);
