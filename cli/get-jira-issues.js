@@ -302,12 +302,12 @@ function extractUniqueStatusIds(issues) {
   
   issues.forEach(issue => {
     // Add current status ID
-    if (issue.fields.status?.id) {
+    if (issue.fields.status && issue.fields.status.id) {
       statusIds.add(issue.fields.status.id);
     }
     
     // Add all status IDs from changelog
-    if (issue.changelog?.histories) {
+    if (issue.changelog && issue.changelog.histories) {
       issue.changelog.histories.forEach(history => {
         history.items.forEach(item => {
           if (item.field === 'status') {
@@ -406,7 +406,7 @@ function findMostRecentTransitionToStatus(changelog, currentStatusId) {
 function calculateAgeMetrics(issue, referenceDate, statusCategoryMap) {
   const currentStatus = issue.fields.status.name;
   const currentStatusId = issue.fields.status.id;
-  const currentCategory = issue.fields.status.statusCategory?.key;
+  const currentCategory = issue.fields.status.statusCategory ? issue.fields.status.statusCategory.key : null;
   const createdDate = issue.fields.created;
   
   debug(`Calculating age for ${issue.key} (status: ${currentStatus}, category: ${currentCategory})`);
@@ -459,14 +459,14 @@ function transformIssue(issue, referenceDate, jiraBaseUrl, statusCategoryMap) {
   return {
     key: issue.key,
     title: fields.summary,
-    type: fields.issuetype?.name || 'Unknown',
+    type: (fields.issuetype && fields.issuetype.name) || 'Unknown',
     age: ageMetrics.age,
     age_in_current_state: ageMetrics.age_in_current_state,
-    priority: fields.priority?.name || 'Medium',
+    priority: (fields.priority && fields.priority.name) || 'Medium',
     assignee: {
-      name: fields.assignee?.displayName || 'Unassigned',
-      picture: fields.assignee?.avatarUrls?.['48x48'] || '',
-      link: fields.assignee?.self || '#'
+      name: (fields.assignee && fields.assignee.displayName) || 'Unassigned',
+      picture: (fields.assignee && fields.assignee.avatarUrls && fields.assignee.avatarUrls['48x48']) || '',
+      link: (fields.assignee && fields.assignee.self) || '#'
     },
     labels: fields.labels || [],
     parent: fields.parent ? {
