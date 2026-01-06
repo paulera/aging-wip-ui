@@ -334,24 +334,31 @@ const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin
           });
         }}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between w-full gap-2">
           <span className="font-bold text-slate-800 text-sm">{item.key}</span>
-          <span className="text-xs font-mono bg-white px-2 py-0.5 rounded text-slate-600 border border-slate-300">
-            {item.age_in_current_state !== undefined && item.age_in_current_state !== item.age
-              ? `${item.age_in_current_state} of ${item.age}d`
-              : `${item.age}d`}
-          </span>
-        </div>
-        
-        {/* Pin indicator - rounded square with P */}
-        {isPinned && (
-          <div 
-            className="w-6 h-6 bg-slate-300 rounded flex items-center justify-center text-slate-700 font-bold text-xs border border-slate-400"
-            title="Pinned (drag header to move)"
-          >
-            P
+          
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-xs font-mono bg-white px-2 py-0.5 rounded text-slate-600 border border-slate-300">
+              {item.age_in_current_state !== undefined && item.age_in_current_state !== item.age
+                ? `${item.age_in_current_state} of ${item.age}d`
+                : `${item.age}d`}
+            </span>
+            
+            {/* Close button for pinned cards */}
+            {isPinned && (
+              <button
+                className="w-6 h-6 bg-slate-300 rounded flex items-center justify-center text-slate-700 font-bold text-xs border border-slate-400 hover:bg-slate-400 transition-colors"
+                title="Close pinned card"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTogglePin(item.key);
+                }}
+              >
+                ✕
+              </button>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {/* Card Body - Not draggable, links and text selectable */}
