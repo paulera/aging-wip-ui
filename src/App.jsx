@@ -45,7 +45,7 @@ const MOCK_DATA = {
       "name": "Analysis Active",
       "top_text": "WIP: 3",
       "order": 1,
-      "sle": { "step1": 2, "step2": 5, "step3": 7, "step4": 12 },
+      "sle": [2, 5, 7, 12],
       "items": [
         {
           "key": "KAN-202",
@@ -89,7 +89,7 @@ const MOCK_DATA = {
       "name": "Dev Active",
       "top_text": "WIP: 2",
       "order": 2,
-      "sle": { "step1": 5, "step2": 10, "step3": 15, "step4": 20 },
+      "sle": [5, 10, 15, 20],
       "items": [
          {
           "key": "KAN-301",
@@ -121,7 +121,7 @@ const MOCK_DATA = {
       "name": "Testing",
       "top_text": "WIP: 1",
       "order": 3,
-      "sle": { "step1": 8, "step2": 12, "step3": 17, "step4": 25 },
+      "sle": [8, 12, 17, 25],
       "items": [
         {
           "key": "KAN-101",
@@ -190,13 +190,29 @@ const calculateLayout = (filteredColumns, maxDays) => {
 
 // --- Components ---
 
-const SmartTooltip = ({ item, dependency, position, theme }) => {
+const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin }) => {
   const tooltipRef = useRef(null);
   const [adjustedStyle, setAdjustedStyle] = useState({ 
     visibility: 'hidden', 
     left: 0, 
     top: 0 
   });
+  const [isHoveringTooltip, setIsHoveringTooltip] = useState(false);
+
+  // Handle P key for pinning/unpinning when hovering tooltip
+  useEffect(() => {
+    if (!isHoveringTooltip) return;
+    
+    const handleKeyDown = (e) => {
+      if (e.key === 'p' || e.key === 'P') {
+        e.preventDefault();
+        onTogglePin(item.key);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isHoveringTooltip, onTogglePin, item.key]);
 
   useLayoutEffect(() => {
     if (!tooltipRef.current || !position) return;
@@ -230,14 +246,35 @@ const SmartTooltip = ({ item, dependency, position, theme }) => {
   return (
     <div 
       ref={tooltipRef}
-      className="fixed z-[9999] bg-white border border-slate-200 shadow-2xl rounded-lg p-3 w-72 pointer-events-none text-left transition-opacity duration-150"
+      className="bg-white border border-slate-200 shadow-2xl rounded-lg p-3 w-72 text-left transition-opacity duration-150"
       style={{ 
+        position: isPinned ? 'absolute' : 'fixed',
         left: adjustedStyle.left, 
         top: adjustedStyle.top,
         visibility: adjustedStyle.visibility,
-        transform: 'translateX(-50%)' 
+        transform: 'translateX(-50%)',
+        pointerEvents: isPinned ? 'auto' : 'none',
+        zIndex: 9999
       }}
+      onMouseEnter={() => setIsHoveringTooltip(true)}
+      onMouseLeave={() => setIsHoveringTooltip(false)}
     >
+      {/* Pin indicator triangle at top center */}
+      {isPinned && (
+        <div 
+          className="absolute left-1/2 -translate-x-1/2"
+          style={{ top: '-1px', transform: 'translate(-50%, -100%)' }}
+        >
+          <svg width="24" height="12" viewBox="0 0 24 12">
+            <polygon 
+              points="0,0 24,0 12,12" 
+              fill="#9ca3af" 
+              stroke="#374151" 
+              strokeWidth="2"
+            />
+          </svg>
+        </div>
+      )}
       <div className="flex justify-between items-start mb-1">
         <span className="font-bold text-slate-800 text-sm">{item.key}</span>
         <span className="text-xs font-mono bg-slate-100 px-1 rounded text-slate-500">
@@ -305,9 +342,24 @@ const SmartTooltip = ({ item, dependency, position, theme }) => {
   );
 };
 
-const ItemDot = ({ layout, layoutMap, setTooltipData, theme }) => {
+const ItemDot = ({ layout, layoutMap, setTooltipData, theme, onTogglePin }) => {
   const { item, localXPct, y } = layout;
   const [hovered, setHovered] = useState(false);
+
+  // Handle P key for pinning when hovering item
+  useEffect(() => {
+    if (!hovered) return;
+    
+    const handleKeyDown = (e) => {
+      if (e.key === 'p' || e.key === 'P') {
+        e.preventDefault();
+        onTogglePin(item.key);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [hovered, onTogglePin, item.key]);
 
   // Get theme config for the type
   const typeConfig = theme.types[item.type] || { 
@@ -579,6 +631,7 @@ export default function App() {
 
   const { title, subtitle, max_days, columns, board_url, features, theme } = data;
   const [tooltipData, setTooltipData] = useState(null);
+  const [pinnedItems, setPinnedItems] = useState(new Map()); // Map<itemKey, {item, dependency, position}>
   const [activeFilters, setActiveFilters] = useState({});
   const [showArrows, setShowArrows] = useState(features.dependencies.default_visible);
   const [showSLEZones, setShowSLEZones] = useState(true);
@@ -703,6 +756,53 @@ export default function App() {
     }
   };
 
+  const pinItem = (itemKey, itemData) => {
+    setPinnedItems(prev => {
+      const newMap = new Map(prev);
+      // Calculate absolute position by adding scroll offset
+      const scrollY = window.scrollY || window.pageYOffset;
+      const scrollX = window.scrollX || window.pageXOffset;
+      newMap.set(itemKey, {
+        item: itemData.item,
+        dependency: itemData.dependency,
+        position: {
+          x: itemData.position.x + scrollX,
+          y: itemData.position.y + scrollY
+        }
+      });
+      return newMap;
+    });
+  };
+
+  const unpinItem = (itemKey) => {
+    setPinnedItems(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(itemKey);
+      return newMap;
+    });
+  };
+
+  const togglePin = (itemKey) => {
+    setPinnedItems(prev => {
+      const newMap = new Map(prev);
+      if (newMap.has(itemKey)) {
+        newMap.delete(itemKey);
+      } else if (tooltipData && tooltipData.item.key === itemKey) {
+        const scrollY = window.scrollY || window.pageYOffset;
+        const scrollX = window.scrollX || window.pageXOffset;
+        newMap.set(itemKey, {
+          item: tooltipData.item,
+          dependency: tooltipData.dependency,
+          position: {
+            x: tooltipData.position.x + scrollX,
+            y: tooltipData.position.y + scrollY
+          }
+        });
+      }
+      return newMap;
+    });
+  };
+
   const handleApplyJson = () => {
     try {
       const parsedData = JSON.parse(jsonInput);
@@ -711,6 +811,7 @@ export default function App() {
       // Reset filters and column widths when data changes
       setActiveFilters({});
       setColumnWidths({});
+      setPinnedItems(new Map());
       setShowArrows(parsedData.features.dependencies.default_visible);
       setShowSLEZones(true);
       setShowSLEValues(true);
@@ -801,6 +902,7 @@ export default function App() {
                             onColumnClick={() => handleColumnClick(col.name)}
                             showSLEZones={showSLEZones}
                             showSLEValues={showSLEValues}
+                            togglePin={togglePin}
                         />
                     ))}
                 </div>
@@ -847,13 +949,30 @@ export default function App() {
         </div>
       </div>
 
-      {/* Smart Tooltip (Fixed position, boundary aware) */}
-      {tooltipData && (
+      {/* Smart Tooltips - Multiple independent instances */}
+      {/* Render all pinned tooltips */}
+      {Array.from(pinnedItems.entries()).map(([itemKey, pinnedData]) => (
         <SmartTooltip 
+          key={`pinned-${itemKey}`}
+          item={pinnedData.item} 
+          dependency={pinnedData.dependency}
+          position={pinnedData.position}
+          theme={theme}
+          isPinned={true}
+          onTogglePin={togglePin}
+        />
+      ))}
+      
+      {/* Render hover tooltip if item is not pinned */}
+      {tooltipData && !pinnedItems.has(tooltipData.item.key) && (
+        <SmartTooltip 
+          key={`hover-${tooltipData.item.key}`}
           item={tooltipData.item} 
           dependency={tooltipData.dependency}
           position={tooltipData.position}
           theme={theme}
+          isPinned={false}
+          onTogglePin={togglePin}
         />
       )}
     </div>
@@ -900,7 +1019,7 @@ const calculateLayoutWithWidths = (filteredColumns, maxDays, columnWidths) => {
   return layoutMap;
 };
 
-const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, widthMultiplier = 1, onColumnClick, showSLEZones = true, showSLEValues = true }) => {
+const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, widthMultiplier = 1, onColumnClick, showSLEZones = true, showSLEValues = true, togglePin }) => {
   const { name, top_text, bottom_text, sle, items } = columnData;
   const [isHovered, setIsHovered] = useState(false);
   
@@ -935,46 +1054,6 @@ const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, w
     
     // Add final zone (from last step to max_days)
     const lastColorIndex = sle.length;
-    const lastColor = theme.sle_colors[lastColorIndex] || 'transparent';
-    zones.push({
-      start: prevValue,
-      end: maxDays,
-      color: lastColor,
-      isTop: true
-    });
-  } else if (sle && typeof sle === 'object' && !Array.isArray(sle)) {
-    // Old format: sle is an object { step1: 2, step2: 5, ... }
-    const sleSteps = Object.keys(sle).sort((a, b) => {
-      const numA = parseInt(a.replace('step', ''));
-      const numB = parseInt(b.replace('step', ''));
-      return numA - numB;
-    });
-    
-    let prevValue = 0;
-    
-    sleSteps.forEach((step, index) => {
-      const stepValue = sle[step];
-      const color = theme.sle_colors[index] || 'transparent';
-      
-      zones.push({
-        start: prevValue,
-        end: stepValue,
-        color: color
-      });
-      
-      // Add percentile marker for this boundary
-      percentileMarkers.push({
-        percentile: defaultPercentiles[index] || (index * 10 + 50),
-        days: stepValue,
-        color: color,
-        yPosition: (stepValue / maxDays) * 100
-      });
-      
-      prevValue = stepValue;
-    });
-    
-    // Add final zone (from last step to max_days)
-    const lastColorIndex = sleSteps.length;
     const lastColor = theme.sle_colors[lastColorIndex] || 'transparent';
     zones.push({
       start: prevValue,
@@ -1062,6 +1141,7 @@ const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, w
                         layoutMap={layoutMap}
                         setTooltipData={setTooltipData}
                         theme={theme}
+                        onTogglePin={togglePin}
                     />
                 );
              })}
