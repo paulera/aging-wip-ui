@@ -41,6 +41,7 @@ function apiPlugin() {
               
               if (params.jqlSLE) args.push(`-s "${params.jqlSLE.replace(/"/g, '\\"')}"`)
               if (params.sleWindow) args.push(`-w ${params.sleWindow}d`)
+              if (params.columnsOrder) args.push(`-o "${params.columnsOrder.replace(/"/g, '\\"')}"`)
 
               const cmd = `node cli/get-jira-issues.js ${args.join(' ')}`
               console.log('Executing:', cmd)

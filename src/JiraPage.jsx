@@ -10,6 +10,7 @@ export default function JiraPage({ onChartGenerated }) {
   const [jql, setJql] = useState(() => localStorage.getItem('jql') || '');
   const [jqlSLE, setJqlSLE] = useState(() => localStorage.getItem('jqlSLE') || '');
   const [sleWindow, setSleWindow] = useState(() => localStorage.getItem('sleWindow') || '90');
+  const [columnsOrder, setColumnsOrder] = useState(() => localStorage.getItem('columnsOrder') || '');
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -33,7 +34,8 @@ export default function JiraPage({ onChartGenerated }) {
     localStorage.setItem('jql', jql);
     localStorage.setItem('jqlSLE', jqlSLE);
     localStorage.setItem('sleWindow', sleWindow);
-  }, [jiraUrl, jiraUser, jiraApiToken, jql, jqlSLE, sleWindow]);
+    localStorage.setItem('columnsOrder', columnsOrder);
+  }, [jiraUrl, jiraUser, jiraApiToken, jql, jqlSLE, sleWindow, columnsOrder]);
 
   const handleGenerateChart = async () => {
     // Validate inputs
@@ -58,7 +60,8 @@ export default function JiraPage({ onChartGenerated }) {
         jiraApiToken,
         jql,
         jqlSLE: jqlSLE || undefined,
-        sleWindow: sleWindow ? parseInt(sleWindow) : 90
+        sleWindow: sleWindow ? parseInt(sleWindow) : 90,
+        columnsOrder: columnsOrder || undefined
       });
       
       setProgress('Chart generated successfully!');
@@ -202,6 +205,22 @@ export default function JiraPage({ onChartGenerated }) {
             placeholder="90"
             className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Columns Order (optional)
+          </label>
+          <input
+            type="text"
+            value={columnsOrder}
+            onChange={(e) => setColumnsOrder(e.target.value)}
+            placeholder="Backlog,To Do,In Progress,Review,Done"
+            className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <p className="text-xs text-slate-500 mt-1">
+            Comma-separated list of column names to define order from left to right
+          </p>
         </div>
 
         <button
