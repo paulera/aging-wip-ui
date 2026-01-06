@@ -1018,11 +1018,15 @@ async function main() {
     }
 
     // Extract unique status IDs from issues
-    let statusIds = extractUniqueStatusIds(issues);
+    const statusIds = extractUniqueStatusIds(issues);
+    
+    // Fetch status metadata in bulk
+    const statuses = await jira.getStatusesByIds(statusIds);
+    const statusCategoryMap = buildStatusCategoryMap(statuses);
+    const allStatusNameToIdMap = buildStatusNameToIdMap(statuses);
     
     // Calculate SLEs if sle-jql is provided
     let slesByStatusId = null;
-    let sleIssues = [];
     if (args.sleJql) {
       verbose('='.repeat(80));
       verbose('Calculating SLEs from historical data...');
@@ -1030,27 +1034,12 @@ async function main() {
       
       // Fetch historical issues for SLE calculation
       verbose(`Executing SLE JQL: ${args.sleJql}`);
-      sleIssues = await jira.getAllIssues(args.sleJql);
+      const sleIssues = await jira.getAllIssues(args.sleJql);
       verbose(`Fetched ${sleIssues.length} issues for SLE calculation`);
       
       if (sleIssues.length > 0) {
-        // Extract status IDs from historical issues and merge with current
-        const sleStatusIds = extractUniqueStatusIds(sleIssues);
-        const mergedStatusIds = new Set([...statusIds, ...sleStatusIds]);
-        statusIds = Array.from(mergedStatusIds);
-        debug(`Total unique status IDs (current + historical): ${statusIds.length}`);
-      }
-    }
-    
-    // Fetch status metadata in bulk (includes all statuses from current and historical issues)
-    const statuses = await jira.getStatusesByIds(statusIds);
-    const statusCategoryMap = buildStatusCategoryMap(statuses);
-    const allStatusNameToIdMap = buildStatusNameToIdMap(statuses);
-    
-    // Continue SLE calculation if we have historical data
-    if (args.sleJql && sleIssues.length > 0) {
-      // Extract status transitions
-      const transitionsByStatusId = extractStatusTransitions(sleIssues, statusCategoryMap);
+        // Extract status transitions
+        const transitionsByStatusId = extractStatusTransitions(sleIssues, statusCategoryMap);
         
         // Parse window
         const window = parseWindow(args.sleWindow, args.date);
@@ -1064,6 +1053,8 @@ async function main() {
       }
       
       verbose('='.repeat(80));
+    } else {
+      debug('No --sle-jql provided, skipping SLE calculation');
     }
     
     // Transform to output format

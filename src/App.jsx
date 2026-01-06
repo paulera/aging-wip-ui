@@ -862,9 +862,12 @@ const calculateLayoutWithWidths = (filteredColumns, maxDays, columnWidths) => {
 
 const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, widthMultiplier = 1, onColumnClick }) => {
   const { name, top_text, bottom_text, sle, items } = columnData;
+  const [isHovered, setIsHovered] = useState(false);
   
-  // Build SLE zones based on sle format
+  // Build SLE zones and percentile markers based on sle format
   const zones = [];
+  const percentileMarkers = [];
+  const defaultPercentiles = [50, 75, 85, 90];
   
   if (sle && Array.isArray(sle) && sle.length > 0) {
     // New format: sle is an array of values [7, 12, 14, 15]
@@ -877,6 +880,14 @@ const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, w
         start: prevValue,
         end: stepValue,
         color: color
+      });
+      
+      // Add percentile marker for this boundary
+      percentileMarkers.push({
+        percentile: defaultPercentiles[index] || (index * 10 + 50),
+        days: stepValue,
+        color: color,
+        yPosition: (stepValue / maxDays) * 100
       });
       
       prevValue = stepValue;
@@ -909,6 +920,14 @@ const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, w
         start: prevValue,
         end: stepValue,
         color: color
+      });
+      
+      // Add percentile marker for this boundary
+      percentileMarkers.push({
+        percentile: defaultPercentiles[index] || (index * 10 + 50),
+        days: stepValue,
+        color: color,
+        yPosition: (stepValue / maxDays) * 100
       });
       
       prevValue = stepValue;
@@ -949,6 +968,8 @@ const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, w
     <div 
       className="flex-1 flex flex-col border-r border-slate-200 last:border-r-0 relative z-0 transition-all duration-300"
       style={{ minWidth: `${width}px`, flexBasis: `${width}px` }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <div className="h-16 border-b border-slate-200 bg-slate-50 p-2 flex flex-col items-center justify-center text-center z-10">
         <span className="font-semibold text-slate-700 text-sm">
@@ -972,6 +993,21 @@ const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, w
              />
            ))}
         </div>
+
+        {/* Percentile markers - only visible on hover */}
+        {isHovered && percentileMarkers.length > 0 && (
+          <div className="absolute inset-0 pointer-events-none z-30">
+            {percentileMarkers.map((marker, idx) => (
+              <PercentileMarker 
+                key={idx}
+                percentile={marker.percentile}
+                days={marker.days}
+                color={marker.color}
+                yPosition={marker.yPosition}
+              />
+            ))}
+          </div>
+        )}
 
         <div className="absolute inset-0 z-20">
              {items.map((item) => {
@@ -1011,6 +1047,36 @@ const SLEZone = ({ start, end, maxDays, color, isTop }) => {
   return (
     <div className="w-full relative border-b border-white/20 last:border-0" style={{ height: `${heightPct}%`, backgroundColor: color }}>
       {!isTop && <div className="absolute top-0 w-full border-t border-dashed border-slate-400/30"></div>}
+    </div>
+  );
+};
+
+const PercentileMarker = ({ percentile, days, color, yPosition }) => {
+  // Lighten the color for the label background (add transparency)
+  const lightenColor = (hexColor) => {
+    // If color has transparency or is not a hex, return with opacity
+    if (!hexColor || hexColor === 'transparent') return 'rgba(200, 200, 200, 0.9)';
+    return hexColor + 'E6'; // Add ~90% opacity
+  };
+
+  return (
+    <div 
+      className="absolute left-0 right-0 flex items-center"
+      style={{ bottom: `${yPosition}%` }}
+    >
+      {/* Horizontal line across the column */}
+      <div className="absolute left-0 right-0 border-t border-black" style={{ borderWidth: '1px' }}></div>
+      
+      {/* Label at the left edge (Y axis) */}
+      <div 
+        className="absolute left-0 -translate-x-full -translate-y-1/2 ml-2 px-2 py-1 rounded text-xs font-medium whitespace-nowrap shadow-sm"
+        style={{ 
+          backgroundColor: lightenColor(color),
+          color: '#000'
+        }}
+      >
+        {percentile}% - {days}d
+      </div>
     </div>
   );
 };
