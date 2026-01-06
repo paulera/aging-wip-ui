@@ -857,7 +857,7 @@ const calculateLayoutWithWidths = (filteredColumns, maxDays, columnWidths) => {
 };
 
 const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, widthMultiplier = 1, onColumnClick }) => {
-  const { name, top_text, sle, items } = columnData;
+  const { name, top_text, bottom_text, sle, items } = columnData;
   
   // Build SLE zones dynamically based on theme colors and column SLE config
   const sleSteps = Object.keys(sle).sort((a, b) => {
@@ -911,7 +911,12 @@ const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, w
       style={{ minWidth: `${width}px`, flexBasis: `${width}px` }}
     >
       <div className="h-16 border-b border-slate-200 bg-slate-50 p-2 flex flex-col items-center justify-center text-center z-10">
-        <span className="text-xs text-slate-500 font-mono mb-1">{top_text}</span>
+        <span className="font-semibold text-slate-700 text-sm">
+          {formatColumnName(name, widthMultiplier)} ({items.length})
+        </span>
+        {top_text && (
+          <span className="text-xs text-slate-500 font-mono">{top_text}</span>
+        )}
       </div>
 
       <div className="relative flex-1 w-full bg-slate-100 overflow-hidden">
@@ -947,11 +952,14 @@ const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, w
       
       <button
         onClick={onColumnClick}
-        className="h-10 border-t border-slate-200 bg-white hover:bg-blue-50 flex items-center justify-center transition-colors cursor-pointer group"
+        className="h-auto min-h-10 border-t border-slate-200 bg-white hover:bg-blue-50 flex flex-col items-center justify-center transition-colors cursor-pointer group py-2"
       >
         <span className="font-semibold text-slate-700 text-sm group-hover:text-blue-600 transition-colors">
-          {formatColumnName(name, widthMultiplier)}
+          {formatColumnName(name, widthMultiplier)} ({items.length})
         </span>
+        {bottom_text && (
+          <span className="text-xs text-slate-500 font-mono mt-1">{bottom_text}</span>
+        )}
       </button>
     </div>
   );
