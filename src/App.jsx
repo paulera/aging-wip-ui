@@ -190,7 +190,7 @@ const calculateLayout = (filteredColumns, maxDays) => {
 
 // --- Components ---
 
-const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin, onUpdatePosition }) => {
+const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin, onUpdatePosition, useTypeColor, sleColor }) => {
   const tooltipRef = useRef(null);
   const [adjustedStyle, setAdjustedStyle] = useState({ 
     visibility: 'hidden', 
@@ -276,6 +276,21 @@ const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin
   if (!item || !position) return null;
 
   const priorityEmoji = theme.priorities[item.priority] || '';
+  
+  // Get type color and create lighter shade
+  const typeConfig = theme.types[item.type] || { color: "#6b7280" };
+  const typeColor = item.color || typeConfig.color;
+  
+  // Convert hex to rgba with low opacity for light shade
+  const hexToRgba = (hex, alpha = 0.3) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+  
+  const headerBgColor = hexToRgba(typeColor, 0.3);
+  const borderColor = hexToRgba(typeColor, 0.5);
 
   return (
     <div 
@@ -295,8 +310,12 @@ const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin
     >
       {/* Draggable Header */}
       <div 
-        className="bg-slate-100 border-b border-slate-200 px-3 py-2 flex items-center justify-between select-none"
-        style={{ cursor: isPinned ? 'grab' : 'default' }}
+        className="border-b px-3 py-2 flex items-center justify-between select-none"
+        style={{ 
+          cursor: isPinned ? 'grab' : 'default',
+          backgroundColor: headerBgColor,
+          borderColor: borderColor
+        }}
         onMouseDown={(e) => {
           if (!isPinned) return;
           e.preventDefault();
@@ -557,7 +576,7 @@ const MultiSelect = ({ label, options, selectedValues = [], onChange, isOpen, on
   );
 };
 
-const FilterBar = ({ config, columns, activeFilters, onFilterChange, dependencyConfig, showArrows, setShowArrows, showSLEZones, setShowSLEZones, showSLEValues, setShowSLEValues }) => {
+const FilterBar = ({ config, columns, activeFilters, onFilterChange, dependencyConfig, showArrows, setShowArrows, showSLEZones, setShowSLEZones, showSLEValues, setShowSLEValues, useTypeColorForCards, setUseTypeColorForCards }) => {
   const [openDropdown, setOpenDropdown] = useState(null);
 
   if (!config.enabled) return null;
@@ -643,6 +662,22 @@ const FilterBar = ({ config, columns, activeFilters, onFilterChange, dependencyC
           </span>
         </label>
       </div>
+
+      <div className="flex items-center gap-2 ml-4 pl-4 border-l border-slate-200">
+        <label className="flex items-center cursor-pointer relative">
+          <input 
+            type="checkbox" 
+            name="use-type-color-for-cards"
+            checked={useTypeColorForCards} 
+            onChange={() => setUseTypeColorForCards(!useTypeColorForCards)} 
+            className="sr-only peer" 
+          />
+          <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+          <span className="ml-2 text-sm text-slate-600 font-medium">
+            Card Color: {useTypeColorForCards ? 'Type' : 'SLE'}
+          </span>
+        </label>
+      </div>
     </div>
   );
 };
@@ -685,6 +720,7 @@ export default function App() {
   const [showArrows, setShowArrows] = useState(features.dependencies.default_visible);
   const [showSLEZones, setShowSLEZones] = useState(true);
   const [showSLEValues, setShowSLEValues] = useState(true);
+  const [useTypeColorForCards, setUseTypeColorForCards] = useState(true);
 
   // Inject data as HTML comment
   useEffect(() => {
@@ -852,6 +888,26 @@ export default function App() {
     });
   };
 
+  // Helper function to get SLE color for an item based on age
+  const getSLEColorForItem = (item, columnData) => {
+    if (!columnData.sle || !Array.isArray(columnData.sle)) {
+      return theme.sle_colors[0] || '#86efac';
+    }
+    
+    const age = item.age;
+    const sle = columnData.sle;
+    
+    // Find which zone the item falls into
+    for (let i = 0; i < sle.length; i++) {
+      if (age <= sle[i]) {
+        return theme.sle_colors[i] || '#86efac';
+      }
+    }
+    
+    // If age exceeds all SLE values, use last color
+    return theme.sle_colors[sle.length] || theme.sle_colors[theme.sle_colors.length - 1] || '#fca5a5';
+  };
+
   const updatePinnedPosition = (itemKey, newPosition) => {
     setPinnedItems(prev => {
       if (!prev.has(itemKey)) return prev;
@@ -876,6 +932,7 @@ export default function App() {
       setShowArrows(parsedData.features.dependencies.default_visible);
       setShowSLEZones(true);
       setShowSLEValues(true);
+      setUseTypeColorForCards(true);
     } catch (error) {
       setJsonError(`Invalid JSON: ${error.message}`);
     }
@@ -926,6 +983,8 @@ export default function App() {
         setShowSLEZones={setShowSLEZones}
         showSLEValues={showSLEValues}
         setShowSLEValues={setShowSLEValues}
+        useTypeColorForCards={useTypeColorForCards}
+        setUseTypeColorForCards={setUseTypeColorForCards}
       />
 
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 pl-12 relative">
@@ -1012,32 +1071,48 @@ export default function App() {
 
       {/* Smart Tooltips - Multiple independent instances */}
       {/* Render all pinned tooltips */}
-      {Array.from(pinnedItems.entries()).map(([itemKey, pinnedData]) => (
-        <SmartTooltip 
-          key={`pinned-${itemKey}`}
-          item={pinnedData.item} 
-          dependency={pinnedData.dependency}
-          position={pinnedData.position}
-          theme={theme}
-          isPinned={true}
-          onTogglePin={togglePin}
-          onUpdatePosition={updatePinnedPosition}
-        />
-      ))}
+      {Array.from(pinnedItems.entries()).map(([itemKey, pinnedData]) => {
+        // Find column for this item to get SLE data
+        const itemColumn = columns.find(col => col.items.some(i => i.key === itemKey));
+        const sleColor = itemColumn ? getSLEColorForItem(pinnedData.item, itemColumn) : null;
+        
+        return (
+          <SmartTooltip 
+            key={`pinned-${itemKey}`}
+            item={pinnedData.item} 
+            dependency={pinnedData.dependency}
+            position={pinnedData.position}
+            theme={theme}
+            isPinned={true}
+            onTogglePin={togglePin}
+            onUpdatePosition={updatePinnedPosition}
+            useTypeColor={useTypeColorForCards}
+            sleColor={sleColor}
+          />
+        );
+      })}
       
       {/* Render hover tooltip if item is not pinned */}
-      {tooltipData && !pinnedItems.has(tooltipData.item.key) && (
-        <SmartTooltip 
-          key={`hover-${tooltipData.item.key}`}
-          item={tooltipData.item} 
-          dependency={tooltipData.dependency}
-          position={tooltipData.position}
-          theme={theme}
-          isPinned={false}
-          onTogglePin={togglePin}
-          onUpdatePosition={updatePinnedPosition}
-        />
-      )}
+      {tooltipData && !pinnedItems.has(tooltipData.item.key) && (() => {
+        // Find column for this item to get SLE data
+        const itemColumn = columns.find(col => col.items.some(i => i.key === tooltipData.item.key));
+        const sleColor = itemColumn ? getSLEColorForItem(tooltipData.item, itemColumn) : null;
+        
+        return (
+          <SmartTooltip 
+            key={`hover-${tooltipData.item.key}`}
+            item={tooltipData.item} 
+            dependency={tooltipData.dependency}
+            position={tooltipData.position}
+            theme={theme}
+            isPinned={false}
+            onTogglePin={togglePin}
+            onUpdatePosition={updatePinnedPosition}
+            useTypeColor={useTypeColorForCards}
+            sleColor={sleColor}
+          />
+        );
+      })()}
     </div>
   );
 }
