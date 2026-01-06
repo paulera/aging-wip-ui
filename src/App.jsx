@@ -803,21 +803,6 @@ export default function App() {
     }
   }, [pinnedItems]);
 
-  // ESC key to clear all pinned cards
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        if (pinnedItems.size > 0) {
-          e.preventDefault();
-          setPinnedItems(new Map());
-        }
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [pinnedItems]);
-
   const handleChartGenerated = (chartData) => {
     setData(chartData);
     setJsonInput(JSON.stringify(chartData, null, 2));
@@ -871,6 +856,60 @@ export default function App() {
   const layoutMap = useMemo(() => {
     return calculateLayoutWithWidths(filteredColumns, max_days, columnWidths);
   }, [filteredColumns, max_days, columnWidths]);
+
+  // ESC key to clear all pinned cards, O key to pin all visible items
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (pinnedItems.size > 0) {
+          e.preventDefault();
+          setPinnedItems(new Map());
+        }
+      } else if (e.key === 'o' || e.key === 'O') {
+        // O key: clear current pins and pin all visible items
+        e.preventDefault();
+        
+        // Get all visible items from layoutMap
+        const newPinnedItems = new Map();
+        layoutMap.forEach((coords, key) => {
+          const item = coords.item;
+          
+          // Find dependency if exists
+          let dependencyItem = null;
+          if (item.depends_on && layoutMap.has(item.depends_on)) {
+            dependencyItem = layoutMap.get(item.depends_on).item;
+          }
+          
+          // Convert percentage coordinates to pixel position
+          // layoutMap contains percentages, we need absolute pixel positions
+          const chartContainer = document.querySelector('.bg-white.border.border-slate-200.rounded-xl');
+          if (chartContainer) {
+            const rect = chartContainer.getBoundingClientRect();
+            const scrollY = window.scrollY || window.pageYOffset;
+            const scrollX = window.scrollX || window.pageXOffset;
+            
+            // Calculate pixel position from percentage
+            const pixelX = rect.left + (coords.x / 100) * rect.width;
+            const pixelY = rect.top + ((100 - coords.y) / 100) * rect.height;
+            
+            newPinnedItems.set(key, {
+              item: item,
+              dependency: dependencyItem,
+              position: {
+                x: pixelX + scrollX,
+                y: pixelY + scrollY
+              }
+            });
+          }
+        });
+        
+        setPinnedItems(newPinnedItems);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [pinnedItems, layoutMap]);
 
   const handleColumnClick = (columnName) => {
     setColumnWidths(prev => {
