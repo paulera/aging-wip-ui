@@ -863,39 +863,75 @@ const calculateLayoutWithWidths = (filteredColumns, maxDays, columnWidths) => {
 const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, widthMultiplier = 1, onColumnClick }) => {
   const { name, top_text, bottom_text, sle, items } = columnData;
   
-  // Build SLE zones dynamically based on theme colors and column SLE config
-  const sleSteps = Object.keys(sle).sort((a, b) => {
-    const numA = parseInt(a.replace('step', ''));
-    const numB = parseInt(b.replace('step', ''));
-    return numA - numB;
-  });
-  
+  // Build SLE zones based on sle format
   const zones = [];
-  let prevValue = 0;
   
-  sleSteps.forEach((step, index) => {
-    const stepValue = sle[step];
-    const colorIndex = index;
-    const color = theme.sle_colors[colorIndex] || 'transparent';
+  if (sle && Array.isArray(sle) && sle.length > 0) {
+    // New format: sle is an array of values [7, 12, 14, 15]
+    let prevValue = 0;
     
-    zones.push({
-      start: prevValue,
-      end: stepValue,
-      color: color
+    sle.forEach((stepValue, index) => {
+      const color = theme.sle_colors[index] || 'transparent';
+      
+      zones.push({
+        start: prevValue,
+        end: stepValue,
+        color: color
+      });
+      
+      prevValue = stepValue;
     });
     
-    prevValue = stepValue;
-  });
-  
-  // Add final zone (from last step to max_days)
-  const lastColorIndex = sleSteps.length;
-  const lastColor = theme.sle_colors[lastColorIndex] || 'transparent';
-  zones.push({
-    start: prevValue,
-    end: maxDays,
-    color: lastColor,
-    isTop: true
-  });
+    // Add final zone (from last step to max_days)
+    const lastColorIndex = sle.length;
+    const lastColor = theme.sle_colors[lastColorIndex] || 'transparent';
+    zones.push({
+      start: prevValue,
+      end: maxDays,
+      color: lastColor,
+      isTop: true
+    });
+  } else if (sle && typeof sle === 'object' && !Array.isArray(sle)) {
+    // Old format: sle is an object { step1: 2, step2: 5, ... }
+    const sleSteps = Object.keys(sle).sort((a, b) => {
+      const numA = parseInt(a.replace('step', ''));
+      const numB = parseInt(b.replace('step', ''));
+      return numA - numB;
+    });
+    
+    let prevValue = 0;
+    
+    sleSteps.forEach((step, index) => {
+      const stepValue = sle[step];
+      const color = theme.sle_colors[index] || 'transparent';
+      
+      zones.push({
+        start: prevValue,
+        end: stepValue,
+        color: color
+      });
+      
+      prevValue = stepValue;
+    });
+    
+    // Add final zone (from last step to max_days)
+    const lastColorIndex = sleSteps.length;
+    const lastColor = theme.sle_colors[lastColorIndex] || 'transparent';
+    zones.push({
+      start: prevValue,
+      end: maxDays,
+      color: lastColor,
+      isTop: true
+    });
+  } else {
+    // No SLE data - single zone with neutral background
+    zones.push({
+      start: 0,
+      end: maxDays,
+      color: '#f1f5f9', // slate-100
+      isTop: true
+    });
+  }
 
   // Base width 225px * multiplier
   const baseWidth = 225;

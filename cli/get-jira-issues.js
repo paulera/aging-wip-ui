@@ -486,19 +486,165 @@ function groupByStatus(issues) {
   return groups;
 }
 
-function createColumns(issuesByStatus) {
+function parseWindow(windowStr, referenceDate) {
+  // Parse window format: "Xd", "YYYY-MM-DD", "YYYYMMDD", or integer
+  
+  // Check for "Xd" format
+  const daysMatch = windowStr.match(/^(\d+)d$/i);
+  if (daysMatch) {
+    const days = parseInt(daysMatch[1]);
+    const cutoffDate = new Date(referenceDate);
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    debug(`Window: ${days} days before ${referenceDate} = ${cutoffDate.toISOString().split('T')[0]}`);
+    return { type: 'date', value: cutoffDate.toISOString().split('T')[0] };
+  }
+  
+  // Check for date format YYYY-MM-DD or YYYYMMDD
+  const dateMatch = windowStr.match(/^(\d{4})-?(\d{2})-?(\d{2})$/);
+  if (dateMatch) {
+    const dateStr = `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`;
+    debug(`Window: From date ${dateStr}`);
+    return { type: 'date', value: dateStr };
+  }
+  
+  // Check for integer count
+  const countMatch = windowStr.match(/^(\d+)$/);
+  if (countMatch) {
+    const count = parseInt(countMatch[1]);
+    debug(`Window: Latest ${count} transitions`);
+    return { type: 'count', value: count };
+  }
+  
+  throw new Error(`Invalid window format: ${windowStr}. Use Xd, YYYY-MM-DD, YYYYMMDD, or integer.`);
+}
+
+function extractStatusTransitions(issues, statusCategoryMap) {
+  const transitionsByStatusId = new Map(); // statusId -> [overallAges]
+  
+  trace(`Extracting status transitions from ${issues.length} issues...`);
+  
+  issues.forEach(issue => {
+    if (!issue.changelog || !issue.changelog.histories) {
+      return;
+    }
+    
+    // First, find when this issue first exited TODO status category
+    const firstExitFromTodo = findFirstStableExitFromTodo(issue.changelog, statusCategoryMap);
+    const baseDate = firstExitFromTodo ? new Date(firstExitFromTodo) : new Date(issue.fields.created);
+    
+    // Sort histories chronologically (oldest first)
+    const histories = [...issue.changelog.histories].reverse();
+    
+    let currentStatusId = null;
+    
+    histories.forEach(history => {
+      const statusChange = history.items.find(item => item.field === 'status');
+      
+      if (statusChange) {
+        const fromStatusId = statusChange.from;
+        const toStatusId = statusChange.to;
+        const exitDate = new Date(history.created);
+        
+        // If we have a current status being tracked, record its exit
+        if (currentStatusId && fromStatusId === currentStatusId) {
+          // Calculate overall age at exit
+          const overallAgeMs = exitDate - baseDate;
+          const overallAgeDays = Math.floor(overallAgeMs / (1000 * 60 * 60 * 24));
+          
+          if (!transitionsByStatusId.has(currentStatusId)) {
+            transitionsByStatusId.set(currentStatusId, []);
+          }
+          
+          transitionsByStatusId.get(currentStatusId).push({
+            issueKey: issue.key,
+            exitDate: history.created.split('T')[0],
+            overallAge: Math.max(0, overallAgeDays)
+          });
+          
+          trace(`  ${issue.key}: Status ${currentStatusId} exited at overall age ${overallAgeDays} days`);
+        }
+        
+        // Update current status tracking
+        currentStatusId = toStatusId;
+      }
+    });
+  });
+  
+  debug(`Extracted transitions for ${transitionsByStatusId.size} unique statuses`);
+  return transitionsByStatusId;
+}
+
+function filterTransitionsByWindow(transitions, window) {
+  if (window.type === 'date') {
+    const cutoffDate = window.value;
+    return transitions.filter(t => t.exitDate >= cutoffDate);
+  } else if (window.type === 'count') {
+    // Sort by exit date descending, take latest N
+    const sorted = [...transitions].sort((a, b) => b.exitDate.localeCompare(a.exitDate));
+    return sorted.slice(0, window.value);
+  }
+  return transitions;
+}
+
+function calculatePercentile(sortedValues, percentile) {
+  if (sortedValues.length === 0) return 0;
+  if (sortedValues.length === 1) return sortedValues[0];
+  
+  const index = (percentile / 100) * (sortedValues.length - 1);
+  const lower = Math.floor(index);
+  const upper = Math.ceil(index);
+  const weight = index - lower;
+  
+  return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
+}
+
+function calculateSLEsForStatuses(transitionsByStatusId, window, percentiles) {
+  const slesByStatusId = new Map();
+  
+  verbose(`Calculating SLEs for ${transitionsByStatusId.size} statuses...`);
+  
+  transitionsByStatusId.forEach((transitions, statusId) => {
+    // Filter by window
+    const filtered = filterTransitionsByWindow(transitions, window);
+    
+    if (filtered.length === 0) {
+      debug(`  Status ${statusId}: No transitions in window`);
+      return;
+    }
+    
+    // Extract overall ages and sort
+    const overallAges = filtered.map(t => t.overallAge).sort((a, b) => a - b);
+    
+    // Calculate percentiles
+    const sles = percentiles.map(p => Math.ceil(calculatePercentile(overallAges, p)));
+    
+    slesByStatusId.set(statusId, sles);
+    
+    debug(`  Status ${statusId}: ${filtered.length} transitions, SLEs: [${sles.join(', ')}]`);
+    trace(`    Sample overall ages: [${overallAges.slice(0, Math.min(10, overallAges.length)).join(', ')}...]`);
+  });
+  
+  verbose(`Calculated SLEs for ${slesByStatusId.size} statuses`);
+  return slesByStatusId;
+}
+
+function createColumns(issuesByStatus, slesByStatusId = null, statusIdMap = null) {
   const columns = [];
   let order = 1;
 
   issuesByStatus.forEach((issues, statusName) => {
+    // Get status ID for SLE lookup
+    const statusId = statusIdMap ? statusIdMap.get(statusName) : null;
+    const sles = (statusId && slesByStatusId) ? slesByStatusId.get(statusId) : null;
+    
     columns.push({
       name: statusName,
       top_text: `WIP: ${issues.length}`,
       order: order++,
-      sle: { step1: 10, step2: 10, step3: 10, step4: 10 }, // Simplified SLE
+      sle: sles || null, // Array of SLE values or null if not calculated
       items: issues.map(issue => {
         // Remove status from issue object
-        const { status, ...itemData } = issue;
+        const { status, statusId: _, ...itemData } = issue;
         return itemData;
       })
     });
@@ -549,19 +695,28 @@ function autoDetectThemePriorities(issues, baseTheme) {
   return priorities;
 }
 
-function buildOutput(issues, referenceDate, jiraBaseUrl, theme, statusCategoryMap, columnsOrder = null) {
+function buildOutput(issues, referenceDate, jiraBaseUrl, theme, statusCategoryMap, slesByStatusId = null, columnsOrder = null, maxDaysOverride = null) {
   // Transform issues
   const transformedIssues = issues.map(issue => {
     const transformed = transformIssue(issue, referenceDate, jiraBaseUrl, statusCategoryMap);
     transformed.status = issue.fields.status.name; // Temporarily add status for grouping
+    transformed.statusId = issue.fields.status.id; // For SLE matching
     return transformed;
   });
 
   // Group by status
   const issuesByStatus = groupByStatus(transformedIssues);
   
-  // Create columns
-  let columns = createColumns(issuesByStatus);
+  // Build status name -> ID map from current issues
+  const statusIdMap = new Map();
+  transformedIssues.forEach(issue => {
+    if (!statusIdMap.has(issue.status)) {
+      statusIdMap.set(issue.status, issue.statusId);
+    }
+  });
+  
+  // Create columns with SLE data
+  let columns = createColumns(issuesByStatus, slesByStatusId, statusIdMap);
 
   // Apply custom column order if provided
   if (columnsOrder) {
@@ -594,7 +749,12 @@ function buildOutput(issues, referenceDate, jiraBaseUrl, theme, statusCategoryMa
 
   // Calculate max age
   const allAges = allItems.map(item => item.age);
-  const maxAge = Math.max(...allAges, 30); // At least 30 days
+  const calculatedMaxAge = Math.max(...allAges, 30); // At least 30 days
+  const maxAge = maxDaysOverride !== null ? maxDaysOverride : calculatedMaxAge;
+  
+  if (maxDaysOverride !== null) {
+    debug(`Using custom max_days: ${maxAge} (calculated: ${calculatedMaxAge})`);
+  }
 
   return {
     title: "Jira Issues - Aging WIP",
@@ -643,7 +803,24 @@ function parseCLIArgs() {
       type: 'string',
       short: 'o',
     },
-    verbose: {
+    'max-days': {
+      type: 'string',
+      short: 'm',
+    },
+    percentiles: {
+      type: 'string',
+      short: 'p',
+      default: '50,75,85,90'
+    },
+    'sle-window': {
+      type: 'string',
+      short: 'w',
+      default: '90d'
+    },
+    'sle-jql': {
+      type: 'string',
+      short: 's',
+    },    verbose: {
       type: 'boolean',
       short: 'v',
       default: false
@@ -701,6 +878,10 @@ function parseCLIArgs() {
     date: values.date,
     theme: values.theme || null,
     columnsOrder: values['columns-order'] || null,
+    maxDays: values['max-days'] ? parseInt(values['max-days']) : null,
+    percentiles: values.percentiles.split(',').map(p => parseInt(p.trim())),
+    sleWindow: values['sle-window'],
+    sleJql: values['sle-jql'] || null,
     verbosity: verbosity
   };
 }
@@ -715,8 +896,12 @@ Required:
 Options:
   -d, --date <YYYY-MM-DD>    Reference date for age calculation (default: today)
   -t, --theme <path>         Path to theme JSON file (default: built-in theme)
-  -co, --columns-order <col1,col2,...>
+  -o, --columns-order <col1,col2,...>
                              Comma-separated list of column names to define order
+  -m, --max-days <days>      Maximum days for chart scale (default: auto-calculated from oldest issue)
+  -p, --percentiles <list>   Comma-separated percentiles for SLE (default: 50,75,85,90)
+  -w, --sle-window <window>  Window for SLE calculation: Xd, YYYY-MM-DD, or count (default: 90d)
+  -s, --sle-jql <query>      JQL query for historical data to calculate SLEs
   -v, --verbose              Verbose logging
   -vv, --debug            Debug logging (includes verbose)
   -vvv, --trace           Trace logging (includes debug + verbose)
@@ -806,9 +991,41 @@ async function main() {
     const statuses = await jira.getStatusesByIds(statusIds);
     const statusCategoryMap = buildStatusCategoryMap(statuses);
     
+    // Calculate SLEs if sle-jql is provided
+    let slesByStatusId = null;
+    if (args.sleJql) {
+      verbose('='.repeat(80));
+      verbose('Calculating SLEs from historical data...');
+      verbose('='.repeat(80));
+      
+      // Fetch historical issues for SLE calculation
+      verbose(`Executing SLE JQL: ${args.sleJql}`);
+      const sleIssues = await jira.getAllIssues(args.sleJql);
+      verbose(`Fetched ${sleIssues.length} issues for SLE calculation`);
+      
+      if (sleIssues.length > 0) {
+        // Extract status transitions
+        const transitionsByStatusId = extractStatusTransitions(sleIssues, statusCategoryMap);
+        
+        // Parse window
+        const window = parseWindow(args.sleWindow, args.date);
+        
+        // Calculate SLEs
+        slesByStatusId = calculateSLEsForStatuses(transitionsByStatusId, window, args.percentiles);
+        
+        verbose(`SLE calculation complete for percentiles: [${args.percentiles.join(', ')}]`);
+      } else {
+        verbose('No historical issues found for SLE calculation');
+      }
+      
+      verbose('='.repeat(80));
+    } else {
+      debug('No --sle-jql provided, skipping SLE calculation');
+    }
+    
     // Transform to output format
     verbose('Transforming issues to output format...');
-    const output = buildOutput(issues, args.date, config.JIRA_URL, theme, statusCategoryMap, args.columnsOrder);
+    const output = buildOutput(issues, args.date, config.JIRA_URL, theme, statusCategoryMap, slesByStatusId, args.columnsOrder, args.maxDays);
 
     // Output JSON to stdout
     console.log(JSON.stringify(output, null, 2));
