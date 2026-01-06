@@ -1,0 +1,13 @@
+# Enable rewrite engine
+RewriteEngine On
+
+# Serve existing files directly
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+
+# API endpoints go to PHP files
+RewriteRule ^api/chart-data$ api/chart-data.php [L]
+RewriteRule ^api/health$ api/health.php [L]
+
+# Everything else goes to index.html (SPA routing)
+RewriteRule ^ dist/index.html [L]
