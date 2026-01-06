@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useLayoutEffect, useEffect } from 'react';
 import { Info, Filter, ArrowRight, Link as LinkIcon, Check, ChevronDown, X, RefreshCw } from 'lucide-react';
+import JiraPage from './JiraPage';
 
 // --- Mock Data ---
 
@@ -712,8 +713,55 @@ const getDataFromURL = () => {
 };
 
 export default function App() {
-  // Load data from URL or fall back to mock data
-  const [data, setData] = useState(() => getDataFromURL() || MOCK_DATA);
+  const [currentRoute, setCurrentRoute] = useState(() => {
+    const path = window.location.pathname;
+    return path;
+  });
+
+  useEffect(() => {
+    const handleNavigation = () => {
+      setCurrentRoute(window.location.pathname);
+    };
+    
+    window.addEventListener('popstate', handleNavigation);
+    
+    // Handle link clicks
+    const handleClick = (e) => {
+      if (e.target.tagName === 'A' && e.target.href.startsWith(window.location.origin)) {
+        e.preventDefault();
+        const path = new URL(e.target.href).pathname;
+        window.history.pushState({}, '', path);
+        setCurrentRoute(path);
+      }
+    };
+    document.addEventListener('click', handleClick);
+    
+    return () => {
+      window.removeEventListener('popstate', handleNavigation);
+      document.removeEventListener('click', handleClick);
+    };
+  }, []);
+
+  // Load data from URL or fall back to localStorage or mock data
+  const [data, setData] = useState(() => {
+    // First try URL parameter
+    const urlData = getDataFromURL();
+    if (urlData) return urlData;
+    
+    // Then try generated chart data from localStorage
+    const generatedData = localStorage.getItem('generatedChartData');
+    if (generatedData) {
+      try {
+        return JSON.parse(generatedData);
+      } catch (e) {
+        console.error('Failed to parse generated chart data:', e);
+      }
+    }
+    
+    // Fall back to mock data
+    return MOCK_DATA;
+  });
+  
   const [jsonInput, setJsonInput] = useState(() => JSON.stringify(data, null, 2));
   const [jsonError, setJsonError] = useState(null);
   const [columnWidths, setColumnWidths] = useState({}); // Track width multiplier per column
@@ -726,6 +774,11 @@ export default function App() {
   const [showSLEZones, setShowSLEZones] = useState(true);
   const [showSLEValues, setShowSLEValues] = useState(true);
   const [useTypeColorForCards, setUseTypeColorForCards] = useState(true);
+
+  const handleChartGenerated = (chartData) => {
+    setData(chartData);
+    setJsonInput(JSON.stringify(chartData, null, 2));
+  };
 
   // Inject data as HTML comment
   useEffect(() => {
@@ -962,6 +1015,10 @@ export default function App() {
     </div>
   ));
 
+  if (currentRoute === '/config') {
+    return <JiraPage onChartGenerated={handleChartGenerated} />;
+  }
+
   return (
     <div className="w-full min-h-screen bg-slate-50 p-8 font-sans relative">
       <div className="mb-6 flex justify-between items-end">
@@ -972,6 +1029,9 @@ export default function App() {
         <div className="flex gap-4 items-center">
             <a href={board_url} className="text-sm text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1">
               Go to Board <Info size={14} />
+            </a>
+            <a href="/config" className="text-sm text-green-600 hover:text-green-800 hover:underline flex items-center gap-1">
+              Jira Config
             </a>
         </div>
       </div>
@@ -1098,29 +1158,26 @@ export default function App() {
       })}
       
       {/* Render hover tooltip if item is not pinned */}
-      {tooltipData && !pinnedItems.has(tooltipData.item.key) && (() => {
-        // Find column for this item to get SLE data
-        const itemColumn = columns.find(col => col.items.some(i => i.key === tooltipData.item.key));
-        const sleColor = itemColumn ? getSLEColorForItem(tooltipData.item, itemColumn) : null;
-        
-        return (
-          <SmartTooltip 
-            key={`hover-${tooltipData.item.key}`}
-            item={tooltipData.item} 
-            dependency={tooltipData.dependency}
-            position={tooltipData.position}
-            theme={theme}
-            isPinned={false}
-            onTogglePin={togglePin}
-            onUpdatePosition={updatePinnedPosition}
-            useTypeColor={useTypeColorForCards}
-            sleColor={sleColor}
-          />
-        );
-      })()}
+      {tooltipData && !pinnedItems.has(tooltipData.item.key) && (
+        <SmartTooltip 
+          key={`hover-${tooltipData.item.key}`}
+          item={tooltipData.item} 
+          dependency={tooltipData.dependency}
+          position={tooltipData.position}
+          theme={theme}
+          isPinned={false}
+          onTogglePin={togglePin}
+          onUpdatePosition={updatePinnedPosition}
+          useTypeColor={useTypeColorForCards}
+          sleColor={(() => {
+            const itemColumn = columns.find(col => col.items.some(i => i.key === tooltipData.item.key));
+            return itemColumn ? getSLEColorForItem(tooltipData.item, itemColumn) : null;
+          })()}
+        />
+      )}
     </div>
   );
-}
+};
 
 // Updated calculateLayout to support dynamic column widths
 const calculateLayoutWithWidths = (filteredColumns, maxDays, columnWidths) => {

@@ -10,9 +10,13 @@ This is a Kanban board visualization that displays work items aging over time ac
 - **Dependency Tracking**: Shows arrows between dependent items (e.g., KAN-205 depends on KAN-202)
 - **Multi-field Filtering**: Filter by type, assignee, label, parent epic, and priority
 - **Priority Support**: Visual indicators showing priority levels with urgency-based border widths
+- **Interactive Pinning**: Hover over items and press 'P' to pin cards, drag pinned cards around the chart
+- **Card Color Modes**: Toggle between type-based and SLE-based card title colors
+- **SLE Toggles**: Show/hide SLE zones and values independently
+- **Percentile Markers**: Hover over columns to see SLE percentile markers on the Y-axis
 - **Theme System**: Fully customizable themes controlling all visual aspects (colors, icons, priorities)
 - **Data-Driven Configuration**: The entire board is configured via JSON data structure
-- **Jira Integration**: CLI tool to fetch issues directly from Jira API
+- **Jira Integration**: Browser-based UI and CLI tool to fetch issues directly from Jira API
 
 ### Technical Stack
 
@@ -22,10 +26,26 @@ This is a Kanban board visualization that displays work items aging over time ac
 - Build: Single-file build output using vite-plugin-singlefile
 - CLI: Standalone Node.js script (no dependencies)
 
+## Quick Start
+
+```bash
+npm run dev
+```
+
+Then open `http://localhost:5173` in your browser.
+
+- `/` - Main aging chart view
+- `/config` - Jira configuration and chart generation
+- `/api/chart-data` - API endpoint (handled by Vite)
+
 ### Data Flow
 
-The app can load data in two ways:
+The app can load data in multiple ways:
 
+- **Jira UI Integration**: Navigate to `#/jira` to configure and fetch data directly from Jira
+  - **Local API Server** (recommended): Run `npm run api` to start a proxy server (no CORS issues)
+  - **Direct API**: Use with CORS browser extension as fallback
+  - See [JIRA_INTEGRATION.md](JIRA_INTEGRATION.md) and [API_SERVER.md](API_SERVER.md)
 - **URL Parameter**: Base64 or URL-encoded JSON via `?data=` query parameter (see [`.vscode/launch.json`](.vscode/launch.json))
 - **CLI Tool**: Fetch live data from Jira using [`cli/get-jira-issues.js`](cli/get-jira-issues.js)
 - **Fallback**: Mock data hardcoded in [`src/App.jsx`](src/App.jsx)

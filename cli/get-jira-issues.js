@@ -1083,7 +1083,156 @@ async function main() {
 // Entry Point
 // ============================================================================
 
-main().catch(error => {
-  console.error(`Fatal error: ${error.message}`);
-  process.exit(1);
-});
+// Check if running as API server
+const args = process.argv.slice(2);
+if (args.includes('--server')) {
+  startServer();
+} else {
+  main().catch(error => {
+    console.error(`Fatal error: ${error.message}`);
+    process.exit(1);
+  });
+}
+
+// ============================================================================
+// API Server Mode
+// ============================================================================
+
+function startServer() {
+  const PORT = process.env.PORT || 3001;
+  
+  const server = http.createServer(async (req, res) => {
+    // Enable CORS
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    
+    // Handle preflight
+    if (req.method === 'OPTIONS') {
+      res.writeHead(200);
+      res.end();
+      return;
+    }
+    
+    // Health check
+    if (req.url === '/health' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'ok' }));
+      return;
+    }
+    
+    // Generate chart endpoint
+    if (req.url === '/generate-chart' && req.method === 'POST') {
+      let body = '';
+      
+      req.on('data', chunk => {
+        body += chunk.toString();
+      });
+      
+      req.on('end', async () => {
+        try {
+          const params = JSON.parse(body);
+          
+          // Validate required params
+          if (!params.jiraUrl || !params.jiraUser || !params.jiraApiToken || !params.jql) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Missing required parameters: jiraUrl, jiraUser, jiraApiToken, jql' }));
+            return;
+          }
+          
+          // Create config from params
+          const config = {
+            JIRA_URL: params.jiraUrl,
+            JIRA_USER: params.jiraUser,
+            JIRA_API_TOKEN: params.jiraApiToken
+          };
+          
+          // Load theme
+          let theme = DEFAULT_THEME;
+          if (params.theme) {
+            theme = params.theme;
+          }
+          
+          const client = new JiraClient(config);
+          
+          // Fetch current issues
+          verbose('Fetching issues from Jira...');
+          const issues = await client.getAllIssues(params.jql);
+          
+          if (issues.length === 0) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ 
+              error: 'No issues found',
+              columns: []
+            }));
+            return;
+          }
+          
+          // Get all unique status IDs
+          const allStatusIds = extractUniqueStatusIds(issues);
+          verbose(`Found ${allStatusIds.length} unique statuses`);
+          
+          // Fetch status metadata
+          verbose('Fetching status metadata...');
+          const allStatuses = await client.getStatusesByIds(allStatusIds);
+          const statusCategoryMap = buildStatusCategoryMap(allStatuses);
+          const allStatusNameToIdMap = buildStatusNameToIdMap(allStatuses);
+          
+          // Handle SLE calculation if requested
+          let slesByStatusId = new Map();
+          if (params.jqlSLE) {
+            verbose('Fetching historical issues for SLE calculation...');
+            const historicalIssues = await client.getAllIssues(params.jqlSLE);
+            
+            if (historicalIssues.length > 0) {
+              const transitions = extractStatusTransitions(historicalIssues, statusCategoryMap);
+              const sleWindow = params.sleWindow ? parseInt(params.sleWindow) : 90;
+              const percentiles = [50, 70, 85, 95];
+              slesByStatusId = calculateSLEsForStatuses(transitions, sleWindow, percentiles);
+            }
+          }
+          
+          // Transform to output format
+          const referenceDate = params.date || new Date().toISOString();
+          const maxDays = params.maxDays ? parseInt(params.maxDays) : null;
+          const columnsOrder = params.columnsOrder || null;
+          
+          const output = buildOutput(
+            issues, 
+            referenceDate, 
+            config.JIRA_URL, 
+            theme, 
+            statusCategoryMap, 
+            slesByStatusId, 
+            columnsOrder, 
+            maxDays, 
+            allStatusNameToIdMap
+          );
+          
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(output));
+          
+        } catch (error) {
+          console.error('Error generating chart:', error);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ 
+            error: error.message,
+            stack: VERBOSITY >= 2 ? error.stack : undefined
+          }));
+        }
+      });
+      
+      return;
+    }
+    
+    // 404 for unknown routes
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Not found' }));
+  });
+  
+  server.listen(PORT, () => {
+    console.log(`✓ Jira API Server running on http://localhost:${PORT}`);
+    console.log(`✓ POST to http://localhost:${PORT}/generate-chart to generate charts`);
+    console.log(`✓ Press Ctrl+C to stop`);
+  });
+}
