@@ -1386,12 +1386,12 @@ const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, w
 
   return (
     <div 
-      className="flex-1 flex flex-col border-r border-slate-200 last:border-r-0 relative z-0 transition-all duration-300"
+      className="flex-1 flex flex-col border-r border-slate-600 last:border-r-0 relative z-0 transition-all duration-300"
       style={{ minWidth: `${width}px`, flexBasis: `${width}px` }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="h-16 border-b border-slate-200 bg-slate-50 p-2 flex flex-col items-center justify-center text-center z-10">
+      <div className="h-16 border-b border-slate-600 bg-slate-50 p-2 flex flex-col items-center justify-center text-center z-10">
         <span className="font-semibold text-slate-700 text-sm">
           {formatColumnName(name, widthMultiplier)} ({items.length})
         </span>
