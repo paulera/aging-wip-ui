@@ -125,7 +125,8 @@ The application expects a JSON object with the following structure:
   "columns": [
     {
       "name": "Column Name",
-      "top_text": "WIP: 3",
+      "top_text": "Optional text below column name at top",
+      "bottom_text": "Optional text below column name at bottom",
       "order": 1,
       "sle": {
         "step1": 2,
@@ -191,9 +192,10 @@ The application expects a JSON object with the following structure:
 - **filters.fields** (array): Which fields to filter by (`type`, `assignee`, `label`, `parent`, `priority`)
 
 #### Columns
-- **name** (string): Column display name
-- **top_text** (string): Text shown at top of column (e.g., WIP count)
-- **order** (number): Column sort order
+- **name** (string): Column display name - shown at top and bottom with WIP count: "Column Name (3)"
+- **top_text** (string, optional): Additional text displayed below column name at the top
+- **bottom_text** (string, optional): Additional text displayed below column name at the bottom
+- **order** (number): Column sort order (can be overridden by CLI `--columns-order` parameter)
 - **sle** (object): SLE step thresholds (step1, step2, step3, step4)
   - Colors are pulled from `theme.sle_colors` array
   - If more steps than colors, remaining steps use transparent
@@ -315,6 +317,7 @@ node get-jira-issues.js -j "JQL QUERY" [options]
 **Optional Parameters:**
 - `-d, --date <YYYY-MM-DD>` - Reference date for age calculations (default: today)
 - `-t, --theme <path>` - Path to custom theme JSON file
+- `-o, --columns-order <col1,col2,...>` - Comma-separated list of column names to define order
 - `-v, --verbose` - Enable verbose logging to stderr
 - `-vv, --debug` - Enable debug logging (includes verbose)
 - `-vvv, --trace` - Enable trace logging (includes debug + verbose)
@@ -342,7 +345,12 @@ node cli/get-jira-issues.js -j "filter = 12345"
 node cli/get-jira-issues.js -j "project = MYPROJ" -t my-theme.json -v
 ```
 
-**5. Save output to file:**
+**5. Custom column order:**
+```bash
+node cli/get-jira-issues.js -j "project = MYPROJ" -o "Backlog,To Do,In Progress,Review,QA,Blocked,Ready to Deploy,On Production,Done"
+```
+
+**6. Save output to file:**
 ```bash
 node cli/get-jira-issues.js -j "project = MYPROJ" > output.json
 ```
