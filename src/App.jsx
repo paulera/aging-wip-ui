@@ -724,7 +724,7 @@ export default function App() {
         setShowArrows={setShowArrows}
       />
 
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 pl-12 relative overflow-hidden">
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 pl-12 relative">
         <div className="absolute -left-4 top-1/2 transform -rotate-90 text-xs font-bold text-slate-400 tracking-wider">
           AGE (DAYS)
         </div>
@@ -919,7 +919,7 @@ const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, w
         )}
       </div>
 
-      <div className="relative flex-1 w-full bg-slate-100 overflow-hidden">
+      <div className="relative flex-1 w-full bg-slate-100 overflow-visible">
         <div className="absolute inset-0 flex flex-col-reverse">
            {zones.map((zone, idx) => (
              <SLEZone 
