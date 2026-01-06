@@ -190,7 +190,7 @@ const calculateLayout = (filteredColumns, maxDays) => {
 
 // --- Components ---
 
-const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin }) => {
+const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin, onUpdatePosition }) => {
   const tooltipRef = useRef(null);
   const [adjustedStyle, setAdjustedStyle] = useState({ 
     visibility: 'hidden', 
@@ -198,6 +198,8 @@ const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin
     top: 0 
   });
   const [isHoveringTooltip, setIsHoveringTooltip] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState(null);
 
   // Handle P key for pinning/unpinning when hovering tooltip
   useEffect(() => {
@@ -213,6 +215,38 @@ const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isHoveringTooltip, onTogglePin, item.key]);
+
+  // Handle dragging
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e) => {
+      if (!dragStart || !isPinned) return;
+      
+      const deltaX = e.clientX - dragStart.x;
+      const deltaY = e.clientY - dragStart.y;
+      
+      if (onUpdatePosition) {
+        onUpdatePosition(item.key, {
+          x: dragStart.posX + deltaX,
+          y: dragStart.posY + deltaY
+        });
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      setDragStart(null);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, dragStart, isPinned, onUpdatePosition, item.key]);
 
   useLayoutEffect(() => {
     if (!tooltipRef.current || !position) return;
@@ -246,7 +280,7 @@ const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin
   return (
     <div 
       ref={tooltipRef}
-      className="bg-white border border-slate-200 shadow-2xl rounded-lg p-3 w-72 text-left transition-opacity duration-150"
+      className="bg-white border border-slate-200 shadow-2xl rounded-lg overflow-hidden w-72 text-left transition-opacity duration-150"
       style={{ 
         position: isPinned ? 'absolute' : 'fixed',
         left: adjustedStyle.left, 
@@ -259,30 +293,44 @@ const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin
       onMouseEnter={() => setIsHoveringTooltip(true)}
       onMouseLeave={() => setIsHoveringTooltip(false)}
     >
-      {/* Pin indicator triangle at top center */}
-      {isPinned && (
-        <div 
-          className="absolute left-1/2 -translate-x-1/2"
-          style={{ top: '-1px', transform: 'translate(-50%, -100%)' }}
-        >
-          <svg width="24" height="12" viewBox="0 0 24 12">
-            <polygon 
-              points="0,0 24,0 12,12" 
-              fill="#9ca3af" 
-              stroke="#374151" 
-              strokeWidth="2"
-            />
-          </svg>
+      {/* Draggable Header */}
+      <div 
+        className="bg-slate-100 border-b border-slate-200 px-3 py-2 flex items-center justify-between select-none"
+        style={{ cursor: isPinned ? 'grab' : 'default' }}
+        onMouseDown={(e) => {
+          if (!isPinned) return;
+          e.preventDefault();
+          setIsDragging(true);
+          setDragStart({
+            x: e.clientX,
+            y: e.clientY,
+            posX: position.x,
+            posY: position.y
+          });
+        }}
+      >
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-slate-800 text-sm">{item.key}</span>
+          <span className="text-xs font-mono bg-white px-2 py-0.5 rounded text-slate-600 border border-slate-300">
+            {item.age_in_current_state !== undefined && item.age_in_current_state !== item.age
+              ? `${item.age_in_current_state} of ${item.age}d`
+              : `${item.age}d`}
+          </span>
         </div>
-      )}
-      <div className="flex justify-between items-start mb-1">
-        <span className="font-bold text-slate-800 text-sm">{item.key}</span>
-        <span className="text-xs font-mono bg-slate-100 px-1 rounded text-slate-500">
-          {item.age_in_current_state !== undefined && item.age_in_current_state !== item.age
-            ? `${item.age_in_current_state} of ${item.age} days`
-            : `${item.age} days`}
-        </span>
+        
+        {/* Pin indicator - rounded square with P */}
+        {isPinned && (
+          <div 
+            className="w-6 h-6 bg-slate-300 rounded flex items-center justify-center text-slate-700 font-bold text-xs border border-slate-400"
+            title="Pinned (drag header to move)"
+          >
+            P
+          </div>
+        )}
       </div>
+
+      {/* Card Body - Not draggable, links and text selectable */}
+      <div className="p-3">
       <p className="text-sm font-medium text-slate-700 leading-tight mb-2">{item.title}</p>
       
       {item.priority && (
@@ -337,6 +385,7 @@ const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin
             )}
         </div>
         <span className="text-xs text-slate-500">{item.assignee.name}</span>
+      </div>
       </div>
     </div>
   );
@@ -803,6 +852,18 @@ export default function App() {
     });
   };
 
+  const updatePinnedPosition = (itemKey, newPosition) => {
+    setPinnedItems(prev => {
+      if (!prev.has(itemKey)) return prev;
+      const newMap = new Map(prev);
+      newMap.set(itemKey, {
+        ...prev.get(itemKey),
+        position: newPosition
+      });
+      return newMap;
+    });
+  };
+
   const handleApplyJson = () => {
     try {
       const parsedData = JSON.parse(jsonInput);
@@ -960,6 +1021,7 @@ export default function App() {
           theme={theme}
           isPinned={true}
           onTogglePin={togglePin}
+          onUpdatePosition={updatePinnedPosition}
         />
       ))}
       
@@ -973,6 +1035,7 @@ export default function App() {
           theme={theme}
           isPinned={false}
           onTogglePin={togglePin}
+          onUpdatePosition={updatePinnedPosition}
         />
       )}
     </div>
