@@ -782,11 +782,11 @@ export default function App() {
         </div>
 
         {/* CHART HEIGHT: Doubled from 500px to 1000px */}
-        <div className="relative w-full overflow-x-auto" style={{ height: '1000px' }}>
-            <div className="relative min-w-full w-max h-full">
+        <div className="relative w-full overflow-x-auto overflow-y-visible" style={{ height: '1000px' }}>
+            <div className="relative min-w-full w-max h-full overflow-visible">
                 
                 {/* Layer 1: Columns (Backgrounds) - Z-0 */}
-                <div className="flex w-full h-full relative z-0">
+                <div className="flex w-full h-full relative z-0 overflow-visible">
                     {filteredColumns
                         .sort((a, b) => a.order - b.order)
                         .map((col, colIndex) => (
@@ -1038,7 +1038,7 @@ const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, w
 
         {/* Percentile markers - only visible on hover and when enabled */}
         {showSLEValues && isHovered && percentileMarkers.length > 0 && (
-          <div className="absolute inset-0 pointer-events-none z-30">
+          <div className="absolute top-0 bottom-0 left-0 right-0 pointer-events-none z-50" style={{ overflow: 'visible' }}>
             {percentileMarkers.map((marker, idx) => (
               <PercentileMarker 
                 key={idx}
