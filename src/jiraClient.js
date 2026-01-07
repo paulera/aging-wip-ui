@@ -180,7 +180,9 @@ function calculateAge(createdDate, referenceDate) {
   const reference = new Date(referenceDate);
   const diffMs = reference - created;
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  return Math.max(0, diffDays);
+  // ProKanban best practice: work is "Day 1" from the moment it starts
+  // No such thing as "zero days old" - work incurs cost from day one
+  return Math.max(1, diffDays + 1);
 }
 
 function extractUniqueStatusIds(issues) {
@@ -266,7 +268,150 @@ function groupIssuesByStatus(issues, statusCategoryMap) {
   return columnMap;
 }
 
-function transformIssue(issue, referenceDate, jiraUrl) {
+function findFirstStableExitFromTodo(changelog, statusCategoryMap) {
+  if (!changelog || !changelog.histories) {
+    return null;
+  }
+
+  // Sort histories chronologically (oldest first)
+  const histories = [...changelog.histories].reverse();
+  
+  let firstExitDate = null;
+  
+  for (let i = 0; i < histories.length; i++) {
+    const history = histories[i];
+    const statusChange = history.items.find(item => item.field === 'status');
+    
+    if (statusChange) {
+      const fromCategory = statusCategoryMap.get(statusChange.from);
+      const toCategory = statusCategoryMap.get(statusChange.to);
+      const changeDate = new Date(history.created);
+      
+      // Found a transition OUT of TODO category
+      if (fromCategory === 'new' && toCategory !== 'new') {
+        // Check if there's a same-day return to TODO
+        let sameDayReturnToTodo = false;
+        
+        for (let j = i + 1; j < histories.length; j++) {
+          const nextHistory = histories[j];
+          const nextStatusChange = nextHistory.items.find(item => item.field === 'status');
+          
+          if (nextStatusChange) {
+            const nextDate = new Date(nextHistory.created);
+            const nextToCategory = statusCategoryMap.get(nextStatusChange.to);
+            
+            // Check if it's the same day
+            if (nextDate.toDateString() === changeDate.toDateString()) {
+              // Check if returning to TODO
+              if (nextToCategory === 'new') {
+                sameDayReturnToTodo = true;
+                break;
+              }
+            } else {
+              // Different day, stop checking
+              break;
+            }
+          }
+        }
+        
+        // If no same-day return, this is our stable exit
+        if (!sameDayReturnToTodo) {
+          firstExitDate = history.created;
+          break;
+        }
+      }
+    }
+  }
+  
+  return firstExitDate;
+}
+
+function findMostRecentTransitionToStatus(changelog, currentStatusId) {
+  if (!changelog || !changelog.histories) {
+    return null;
+  }
+
+  // Histories are typically in reverse chronological order, search from start
+  for (const history of changelog.histories) {
+    const statusChange = history.items.find(item => item.field === 'status');
+    if (statusChange && statusChange.to === currentStatusId) {
+      return history.created;
+    }
+  }
+  
+  return null;
+}
+
+function calculateAgeMetrics(issue, referenceDate, statusCategoryMap) {
+  const currentStatus = issue.fields.status.name;
+  const currentStatusId = issue.fields.status.id;
+  const currentCategory = issue.fields.status.statusCategory ? issue.fields.status.statusCategory.key : null;
+  const createdDate = issue.fields.created;
+  
+  // Find first stable exit from TODO category
+  const firstStableExit = findFirstStableExitFromTodo(issue.changelog, statusCategoryMap);
+  
+  // Find most recent transition to current status
+  const mostRecentTransition = findMostRecentTransitionToStatus(issue.changelog, currentStatusId);
+  
+  // Calculate ages
+  const ageStartDate = firstStableExit || createdDate;
+  const currentStateStartDate = mostRecentTransition || createdDate;
+  
+  const totalAge = calculateAge(ageStartDate, referenceDate);
+  const currentStateAge = calculateAge(currentStateStartDate, referenceDate);
+  
+  return {
+    age: totalAge,
+    age_in_current_state: currentStateAge,
+    start_date: formatDate(ageStartDate),
+    current_state_start_date: formatDate(currentStateStartDate)
+  };
+}
+
+function transformIssue(issue, referenceDate, jiraUrl, statusCategoryMap) {
+  const fields = issue.fields;
+  const ageMetrics = calculateAgeMetrics(issue, referenceDate, statusCategoryMap);
+  
+  const transformed = {
+    key: issue.key,
+    title: fields.summary || 'No title',
+    type: fields.issuetype?.name || 'Unknown',
+    age: ageMetrics.age,
+    age_in_current_state: ageMetrics.age_in_current_state,
+    start_date: ageMetrics.start_date,
+    current_state_start_date: ageMetrics.current_state_start_date,
+    priority: fields.priority?.name || 'Medium',
+    assignee: {
+      name: fields.assignee?.displayName || 'Unassigned',
+      picture: fields.assignee?.avatarUrls?.['48x48'] || '',
+      link: fields.assignee?.self || '#'
+    },
+    labels: fields.labels || [],
+    parent: fields.parent ? {
+      key: fields.parent.key,
+      title: fields.parent.fields?.summary || '',
+      url: `${jiraUrl}/browse/${fields.parent.key}`
+    } : null,
+    url: `${jiraUrl}/browse/${issue.key}`,
+    changelog: issue.changelog
+  };
+  
+  // Check for blockers/dependencies
+  if (fields.issuelinks) {
+    const blockedBy = fields.issuelinks
+      .filter(link => link.type.name === 'Blocks' && link.inwardIssue)
+      .map(link => link.inwardIssue.key);
+    
+    if (blockedBy.length > 0) {
+      transformed.depends_on = blockedBy[0];
+    }
+  }
+  
+  return transformed;
+}
+
+function transformIssueOld(issue, referenceDate, jiraUrl) {
   const fields = issue.fields;
   const age = calculateAge(fields.created, referenceDate);
   
@@ -306,12 +451,14 @@ function transformIssue(issue, referenceDate, jiraUrl) {
   return transformed;
 }
 
-export function buildChartData(issues, jiraUrl, theme = DEFAULT_THEME) {
+export async function buildChartData(client, issues, jiraUrl, theme = DEFAULT_THEME) {
   const referenceDate = formatDate(new Date().toISOString());
-  const statuses = extractUniqueStatusIds(issues);
   
-  // For simplicity, we'll group by current status without full status metadata
-  // In a full implementation, you'd fetch status metadata from Jira
+  // Extract unique status IDs and fetch status metadata
+  const statusIds = extractUniqueStatusIds(issues);
+  const statuses = await client.getStatusesByIds(statusIds);
+  const statusCategoryMap = buildStatusCategoryMap(statuses);
+  
   const columnMap = new Map();
   let maxAge = 0;
   
@@ -326,7 +473,7 @@ export function buildChartData(issues, jiraUrl, theme = DEFAULT_THEME) {
       columnMap.set(status, []);
     }
     
-    const transformed = transformIssue(issue, referenceDate, jiraUrl);
+    const transformed = transformIssue(issue, referenceDate, jiraUrl, statusCategoryMap);
     maxAge = Math.max(maxAge, transformed.age);
     columnMap.get(status).push(transformed);
   });

@@ -622,9 +622,11 @@ function extractStatusTransitions(issues, statusCategoryMap) {
         
         // If we have a current status being tracked, record its exit
         if (currentStatusId && fromStatusId === currentStatusId) {
-          // Calculate overall age at exit
+          // Calculate overall age at exit using ProKanban Day 1 standard
           const overallAgeMs = exitDate - baseDate;
           const overallAgeDays = Math.floor(overallAgeMs / (1000 * 60 * 60 * 24));
+          // ProKanban: work is "Day 1" from the moment it starts
+          const overallAge = Math.max(1, overallAgeDays + 1);
           
           if (!transitionsByStatusId.has(currentStatusId)) {
             transitionsByStatusId.set(currentStatusId, []);
@@ -633,10 +635,10 @@ function extractStatusTransitions(issues, statusCategoryMap) {
           transitionsByStatusId.get(currentStatusId).push({
             issueKey: issue.key,
             exitDate: history.created.split('T')[0],
-            overallAge: Math.max(0, overallAgeDays)
+            overallAge: overallAge
           });
           
-          trace(`  ${issue.key}: Status ${currentStatusId} exited at overall age ${overallAgeDays} days`);
+          trace(`  ${issue.key}: Status ${currentStatusId} exited at overall age ${overallAge} days`);
         }
         
         // Update current status tracking
