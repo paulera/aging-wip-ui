@@ -247,6 +247,38 @@ class JiraClient {
     } while (allIssues.length < total);
 
     verbose(`Successfully fetched all ${allIssues.length} issues`);
+    
+    // The search API returns incomplete changelogs. Fetch complete changelogs for non-done issues.
+    // We only need complete changelogs for active issues that will be displayed on the board.
+    const activeIssues = allIssues.filter(issue => {
+      const statusCategory = issue.fields.status?.statusCategory?.key;
+      return statusCategory !== 'done';
+    });
+    
+    if (activeIssues.length > 0) {
+      verbose(`Fetching complete changelogs for ${activeIssues.length} active issues (skipping ${allIssues.length - activeIssues.length} done issues)...`);
+      
+      // Process in batches of 10 concurrent requests for better performance
+      const batchSize = 10;
+      for (let i = 0; i < activeIssues.length; i += batchSize) {
+        const batch = activeIssues.slice(i, Math.min(i + batchSize, activeIssues.length));
+        await Promise.all(batch.map(async (issue) => {
+          try {
+            const fullIssue = await this.request(`/rest/api/3/issue/${issue.key}?expand=changelog&fields=changelog`);
+            if (fullIssue.changelog) {
+              issue.changelog = fullIssue.changelog;
+              debug(`  Enriched changelog for ${issue.key}: ${fullIssue.changelog.total} history entries`);
+            }
+          } catch (error) {
+            verbose(`  Warning: Could not fetch complete changelog for ${issue.key}: ${error.message}`);
+          }
+        }));
+      }
+      verbose(`Completed changelog enrichment`);
+    } else {
+      verbose(`No active issues require changelog enrichment`);
+    }
+    
     return allIssues;
   }
 
@@ -287,11 +319,33 @@ function formatDate(isoDateString) {
 
 function buildStatusCategoryMap(statuses) {
   const map = new Map();
+  
+  // Map status category strings to standard Jira keys
+  // The /rest/api/3/statuses endpoint returns statusCategory as a string
+  const categoryStringToKey = {
+    'TODO': 'new',
+    'IN_PROGRESS': 'indeterminate',
+    'DONE': 'done'
+  };
+  
   statuses.forEach(status => {
     if (status.statusCategory) {
-      map.set(status.id, status.statusCategory.key);
-      // Also map by name for current status lookup
-      map.set(status.name, status.statusCategory.key);
+      let categoryKey;
+      
+      // Handle both API response formats:
+      // 1. /rest/api/3/statuses returns statusCategory as string: "TODO", "IN_PROGRESS", "DONE"
+      // 2. /rest/api/3/status/{id} returns statusCategory as object with .key property
+      if (typeof status.statusCategory === 'string') {
+        categoryKey = categoryStringToKey[status.statusCategory] || status.statusCategory.toLowerCase();
+      } else if (status.statusCategory.key) {
+        categoryKey = status.statusCategory.key;
+      }
+      
+      if (categoryKey) {
+        map.set(status.id, categoryKey);
+        // Also map by name for current status lookup
+        map.set(status.name, categoryKey);
+      }
     }
   });
   debug(`Built status category map with ${map.size} entries`);
