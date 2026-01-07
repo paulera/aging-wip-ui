@@ -91,7 +91,11 @@ app.post('/api/chart-data', async (req, res) => {
     
   } catch (error) {
     console.error('API error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Stack trace:', error.stack);
+    res.status(500).json({ 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
+    });
   }
 });
 

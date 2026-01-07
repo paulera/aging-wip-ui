@@ -251,7 +251,7 @@ class JiraClient {
     // The search API returns incomplete changelogs. Fetch complete changelogs for non-done issues.
     // We only need complete changelogs for active issues that will be displayed on the board.
     const activeIssues = allIssues.filter(issue => {
-      const statusCategory = issue.fields.status?.statusCategory?.key;
+      const statusCategory = issue.fields.status && issue.fields.status.statusCategory && issue.fields.status.statusCategory.key;
       return statusCategory !== 'done';
     });
     
@@ -599,50 +599,58 @@ function extractStatusTransitions(issues, statusCategoryMap) {
   trace(`Extracting status transitions from ${issues.length} issues...`);
   
   issues.forEach(issue => {
-    if (!issue.changelog || !issue.changelog.histories) {
-      return;
-    }
-    
-    // Sort histories chronologically (oldest first)
-    const histories = [...issue.changelog.histories].reverse();
-    
-    let currentStatusId = null;
-    let currentStatusEntryDate = null;
-    
-    histories.forEach(history => {
-      const statusChange = history.items.find(item => item.field === 'status');
-      
-      if (statusChange) {
-        const fromStatusId = statusChange.from;
-        const toStatusId = statusChange.to;
-        const transitionDate = new Date(history.created);
-        
-        // If we have a current status being tracked, record its exit
-        if (currentStatusId && fromStatusId === currentStatusId && currentStatusEntryDate) {
-          // Calculate time spent in this status using ProKanban Day 1 standard
-          const timeInStatusMs = transitionDate - currentStatusEntryDate;
-          const timeInStatusDays = Math.floor(timeInStatusMs / (1000 * 60 * 60 * 24));
-          // ProKanban: work is "Day 1" from the moment it starts
-          const timeInStatus = Math.max(1, timeInStatusDays + 1);
-          
-          if (!transitionsByStatusId.has(currentStatusId)) {
-            transitionsByStatusId.set(currentStatusId, []);
-          }
-          
-          transitionsByStatusId.get(currentStatusId).push({
-            issueKey: issue.key,
-            exitDate: history.created.split('T')[0],
-            overallAge: timeInStatus // Keep name for backward compatibility
-          });
-          
-          trace(`  ${issue.key}: Status ${currentStatusId} spent ${timeInStatus} days (${currentStatusEntryDate.toISOString().split('T')[0]} -> ${transitionDate.toISOString().split('T')[0]})`);
-        }
-        
-        // Update current status tracking
-        currentStatusId = toStatusId;
-        currentStatusEntryDate = transitionDate;
+    try {
+      if (!issue.changelog || !issue.changelog.histories) {
+        return;
       }
-    });
+      
+      // Sort histories chronologically (oldest first)
+      const histories = [...issue.changelog.histories].reverse();
+      
+      let currentStatusId = null;
+      let currentStatusEntryDate = null;
+      
+      histories.forEach(history => {
+        try {
+          const statusChange = history.items.find(item => item.field === 'status');
+          
+          if (statusChange) {
+            const fromStatusId = statusChange.from;
+            const toStatusId = statusChange.to;
+            const transitionDate = new Date(history.created);
+            
+            // If we have a current status being tracked, record its exit
+            if (currentStatusId && fromStatusId === currentStatusId && currentStatusEntryDate) {
+              // Calculate time spent in this status using ProKanban Day 1 standard
+              const timeInStatusMs = transitionDate - currentStatusEntryDate;
+              const timeInStatusDays = Math.floor(timeInStatusMs / (1000 * 60 * 60 * 24));
+              // ProKanban: work is "Day 1" from the moment it starts
+              const timeInStatus = Math.max(1, timeInStatusDays + 1);
+              
+              if (!transitionsByStatusId.has(currentStatusId)) {
+                transitionsByStatusId.set(currentStatusId, []);
+              }
+              
+              transitionsByStatusId.get(currentStatusId).push({
+                issueKey: issue.key,
+                exitDate: history.created.split('T')[0],
+                overallAge: timeInStatus // Keep name for backward compatibility
+              });
+              
+              trace(`  ${issue.key}: Status ${currentStatusId} spent ${timeInStatus} days (${currentStatusEntryDate.toISOString().split('T')[0]} -> ${transitionDate.toISOString().split('T')[0]})`);
+            }
+            
+            // Update current status tracking
+            currentStatusId = toStatusId;
+            currentStatusEntryDate = transitionDate;
+          }
+        } catch (historyError) {
+          debug(`  Error processing history for ${issue.key}: ${historyError.message}`);
+        }
+      });
+    } catch (issueError) {
+      debug(`  Error processing issue ${issue.key}: ${issueError.message}`);
+    }
   });
   
   debug(`Extracted transitions for ${transitionsByStatusId.size} unique statuses`);
