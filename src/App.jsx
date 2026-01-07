@@ -207,6 +207,12 @@ const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin
     if (!isHoveringTooltip) return;
     
     const handleKeyDown = (e) => {
+      // Ignore if typing in an input field
+      const target = e.target;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable) {
+        return;
+      }
+      
       if (e.key === 'p' || e.key === 'P') {
         e.preventDefault();
         onTogglePin(item.key);
@@ -446,6 +452,12 @@ const ItemDot = ({ layout, layoutMap, setTooltipData, theme, onTogglePin }) => {
     if (!hovered) return;
     
     const handleKeyDown = (e) => {
+      // Ignore if typing in an input field
+      const target = e.target;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable) {
+        return;
+      }
+      
       if (e.key === 'p' || e.key === 'P') {
         e.preventDefault();
         onTogglePin(item.key);
@@ -806,6 +818,7 @@ export default function App() {
   const [showSLEZones, setShowSLEZones] = useState(true);
   const [showSLEValues, setShowSLEValues] = useState(true);
   const [useTypeColorForCards, setUseTypeColorForCards] = useState(true);
+  const chartContainerRef = useRef(null);
 
   // Save pinned items to localStorage
   useEffect(() => {
@@ -874,6 +887,17 @@ export default function App() {
   // ESC key to clear all pinned cards, O key to pin all visible items
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Ignore if typing in an input field
+      const target = e.target;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable) {
+        return;
+      }
+      
+      // Only process if interacting with the chart container
+      if (!chartContainerRef.current || !chartContainerRef.current.contains(target)) {
+        return;
+      }
+      
       if (e.key === 'Escape') {
         if (pinnedItems.size > 0) {
           e.preventDefault();
@@ -923,7 +947,7 @@ export default function App() {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [pinnedItems, layoutMap]);
+  }, [pinnedItems, layoutMap, chartContainerRef]);
 
   const handleColumnClick = (columnName) => {
     setColumnWidths(prev => {
@@ -1148,7 +1172,7 @@ export default function App() {
         setUseTypeColorForCards={setUseTypeColorForCards}
       />
 
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 pl-12 relative">
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 pl-12 relative" ref={chartContainerRef} tabIndex={0}>
         <div className="absolute -left-4 top-1/2 transform -rotate-90 text-xs font-bold text-slate-400 tracking-wider">
           AGE (DAYS)
         </div>
