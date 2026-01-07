@@ -645,14 +645,17 @@ const FilterBar = ({ config, columns, activeFilters, onFilterChange, dependencyC
         );
       })}
 
-      {Object.keys(activeFilters).some(k => activeFilters[k]?.length > 0) && (
-         <button 
-           onClick={() => onFilterChange('reset')}
-           className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium ml-auto px-2 py-1 hover:bg-red-50 rounded"
-         >
-           <X size={12} /> Clear Filters
-         </button>
-      )}
+      <button 
+        onClick={() => onFilterChange('reset')}
+        className={`flex items-center gap-1 text-xs font-medium ml-auto px-3 py-1.5 rounded transition-colors ${
+          Object.keys(activeFilters).some(k => activeFilters[k]?.length > 0)
+            ? 'text-red-500 hover:text-red-700 hover:bg-red-50 border border-red-300'
+            : 'text-slate-400 cursor-not-allowed border border-slate-200'
+        }`}
+        disabled={!Object.keys(activeFilters).some(k => activeFilters[k]?.length > 0)}
+      >
+        <X size={12} /> Clear Filters
+      </button>
 
       {dependencyConfig.show_toggle && (
          <div className="flex items-center gap-2 ml-4 pl-4 border-l border-slate-200">
@@ -666,7 +669,7 @@ const FilterBar = ({ config, columns, activeFilters, onFilterChange, dependencyC
              />
              <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
              <span className="ml-2 text-sm text-slate-600 font-medium flex items-center gap-1">
-                Show Dependencies <ArrowRight size={14} className="text-slate-400"/>
+                Show [D]ependencies <ArrowRight size={14} className="text-slate-400"/>
              </span>
            </label>
          </div>
@@ -683,7 +686,7 @@ const FilterBar = ({ config, columns, activeFilters, onFilterChange, dependencyC
           />
           <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
           <span className="ml-2 text-sm text-slate-600 font-medium">
-            Show SLE Zones
+            Show SLE [Z]ones
           </span>
         </label>
         
@@ -697,7 +700,7 @@ const FilterBar = ({ config, columns, activeFilters, onFilterChange, dependencyC
           />
           <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
           <span className="ml-2 text-sm text-slate-600 font-medium">
-            Show SLE Values
+            Show SLE [V]alues
           </span>
         </label>
       </div>
@@ -713,7 +716,7 @@ const FilterBar = ({ config, columns, activeFilters, onFilterChange, dependencyC
           />
           <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
           <span className="ml-2 text-sm text-slate-600 font-medium">
-            Card Color: {useTypeColorForCards ? 'Type' : 'SLE'}
+            [C]ard Color: {useTypeColorForCards ? 'Type' : 'SLE'}
           </span>
         </label>
       </div>
@@ -814,10 +817,44 @@ export default function App() {
     return new Map();
   }); // Map<itemKey, {item, dependency, position}>
   const [activeFilters, setActiveFilters] = useState({});
-  const [showArrows, setShowArrows] = useState(features.dependencies.default_visible);
-  const [showSLEZones, setShowSLEZones] = useState(true);
-  const [showSLEValues, setShowSLEValues] = useState(true);
-  const [useTypeColorForCards, setUseTypeColorForCards] = useState(true);
+  
+  // Load toggle states from localStorage
+  const [showArrows, setShowArrows] = useState(() => {
+    try {
+      const stored = localStorage.getItem('showArrows');
+      return stored !== null ? JSON.parse(stored) : features.dependencies.default_visible;
+    } catch (e) {
+      return features.dependencies.default_visible;
+    }
+  });
+  
+  const [showSLEZones, setShowSLEZones] = useState(() => {
+    try {
+      const stored = localStorage.getItem('showSLEZones');
+      return stored !== null ? JSON.parse(stored) : true;
+    } catch (e) {
+      return true;
+    }
+  });
+  
+  const [showSLEValues, setShowSLEValues] = useState(() => {
+    try {
+      const stored = localStorage.getItem('showSLEValues');
+      return stored !== null ? JSON.parse(stored) : true;
+    } catch (e) {
+      return true;
+    }
+  });
+  
+  const [useTypeColorForCards, setUseTypeColorForCards] = useState(() => {
+    try {
+      const stored = localStorage.getItem('useTypeColorForCards');
+      return stored !== null ? JSON.parse(stored) : true;
+    } catch (e) {
+      return true;
+    }
+  });
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const chartContainerRef = useRef(null);
 
   // Save pinned items to localStorage
@@ -829,6 +866,39 @@ export default function App() {
       console.error('Failed to save pinned items:', e);
     }
   }, [pinnedItems]);
+
+  // Save toggle states to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('showArrows', JSON.stringify(showArrows));
+    } catch (e) {
+      console.error('Failed to save showArrows:', e);
+    }
+  }, [showArrows]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('showSLEZones', JSON.stringify(showSLEZones));
+    } catch (e) {
+      console.error('Failed to save showSLEZones:', e);
+    }
+  }, [showSLEZones]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('showSLEValues', JSON.stringify(showSLEValues));
+    } catch (e) {
+      console.error('Failed to save showSLEValues:', e);
+    }
+  }, [showSLEValues]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('useTypeColorForCards', JSON.stringify(useTypeColorForCards));
+    } catch (e) {
+      console.error('Failed to save useTypeColorForCards:', e);
+    }
+  }, [useTypeColorForCards]);
 
   const handleChartGenerated = (chartData) => {
     setData(chartData);
@@ -884,22 +954,80 @@ export default function App() {
     return calculateLayoutWithWidths(filteredColumns, max_days, columnWidths);
   }, [filteredColumns, max_days, columnWidths]);
 
-  // ESC key to clear all pinned cards, O key to pin all visible items
+  // Global keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Ignore if typing in an input field
       const target = e.target;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable) {
-        return  ;
+        return;
       }
       
+      // Navigation shortcuts (work everywhere)
+      if (e.key === 'b' || e.key === 'B') {
+        e.preventDefault();
+        window.open(board_url, '_blank');
+        return;
+      }
+      
+      if (e.key === 'j' || e.key === 'J') {
+        e.preventDefault();
+        window.location.href = '/config';
+        return;
+      }
+      
+      if (e.key === '?' || e.key === 'h' || e.key === 'H' || e.key === '/') {
+        e.preventDefault();
+        setShowKeyboardHelp(true);
+        return;
+      }
+      
+      // Esc key closes modals first
       if (e.key === 'Escape') {
+        if (showKeyboardHelp) {
+          e.preventDefault();
+          setShowKeyboardHelp(false);
+          return;
+        }
+      }
+      
+      // Chart-only shortcuts
+      if (currentRoute === '/config') {
+        return;
+      }
+      
+      // Toggle shortcuts
+      if (e.key === 'd' || e.key === 'D') {
+        e.preventDefault();
+        setShowArrows(!showArrows);
+        return;
+      }
+      
+      if (e.key === 'z' || e.key === 'Z') {
+        e.preventDefault();
+        setShowSLEZones(!showSLEZones);
+        return;
+      }
+      
+      if (e.key === 'v' || e.key === 'V') {
+        e.preventDefault();
+        setShowSLEValues(!showSLEValues);
+        return;
+      }
+      
+      if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault();
+        setUseTypeColorForCards(!useTypeColorForCards);
+        return;
+      }
+      
+      if (e.key === 'x' || e.key === 'X') {
         if (pinnedItems.size > 0) {
           e.preventDefault();
           setPinnedItems(new Map());
         }
-      } else if (e.key === 'o' || e.key === 'O') {
-        // O key: clear current pins and pin all visible items
+      } else if (e.key === 'a' || e.key === 'A') {
+        // A key: clear current pins and pin all visible items
         e.preventDefault();
         
         // Get all visible items from layoutMap
@@ -942,7 +1070,7 @@ export default function App() {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [pinnedItems, layoutMap, chartContainerRef]);
+  }, [pinnedItems, layoutMap, chartContainerRef, currentRoute, board_url, showKeyboardHelp, showArrows, showSLEZones, showSLEValues, useTypeColorForCards]);
 
   const handleColumnClick = (columnName) => {
     setColumnWidths(prev => {
@@ -1143,11 +1271,17 @@ export default function App() {
         </div>
         <div className="flex gap-4 items-center">
             <a href={board_url} className="text-sm text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1">
-              Go to Board <Info size={14} />
-            </a>
+              [B] Go to Board
+            </a> |
             <a href="/config" className="text-sm text-green-600 hover:text-green-800 hover:underline flex items-center gap-1">
-              Jira Config
-            </a>
+              [J] Jira Config
+            </a> |
+            <button 
+              onClick={() => setShowKeyboardHelp(true)} 
+              className="text-sm text-purple-600 hover:text-purple-800 hover:underline flex items-center gap-1"
+            >
+              [? / H] Keyboard Shortcuts
+            </button>
         </div>
       </div>
 
@@ -1294,6 +1428,97 @@ export default function App() {
             return itemColumn?.name;
           })()}
         />
+      )}
+      
+      {/* Keyboard Shortcuts Help Modal */}
+      {showKeyboardHelp && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]"
+          onClick={() => setShowKeyboardHelp(false)}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-slate-800">Keyboard Shortcuts</h2>
+              <button 
+                onClick={() => setShowKeyboardHelp(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="border-b pb-2">
+                <h3 className="text-sm font-semibold text-slate-600 mb-2">Navigation</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-700">Go to Jira Board</span>
+                    <kbd className="px-2 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-mono">B</kbd>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-700">Jira Configuration</span>
+                    <kbd className="px-2 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-mono">J</kbd>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-700">Show this help</span>
+                    <div className="flex gap-1">
+                      <kbd className="px-2 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-mono">?</kbd>
+                      <kbd className="px-2 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-mono">H</kbd>
+                      <kbd className="px-2 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-mono">/</kbd>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="border-b pb-2">
+                <h3 className="text-sm font-semibold text-slate-600 mb-2">View Toggles</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-700">Toggle Dependencies</span>
+                    <kbd className="px-2 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-mono">D</kbd>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-700">Toggle SLE Zones</span>
+                    <kbd className="px-2 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-mono">Z</kbd>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-700">Toggle SLE Values</span>
+                    <kbd className="px-2 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-mono">V</kbd>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-700">Toggle Card Color</span>
+                    <kbd className="px-2 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-mono">C</kbd>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="border-b pb-2">
+                <h3 className="text-sm font-semibold text-slate-600 mb-2">Card Management</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-700">Pin/Unpin card (hover card)</span>
+                    <kbd className="px-2 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-mono">P</kbd>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-700">Pin all visible cards</span>
+                    <kbd className="px-2 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-mono">A</kbd>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-700">Clear all pinned cards</span>
+                    <kbd className="px-2 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-mono">X</kbd>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="text-xs text-slate-500 pt-2">
+                <p>💡 Card shortcuts work only in chart view, not when typing in input fields.</p>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
