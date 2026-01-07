@@ -1419,8 +1419,8 @@ export default function App() {
            })}
         </div>
 
-        {/* CHART HEIGHT: Doubled from 500px to 1000px */}
-        <div className="relative w-full overflow-x-auto overflow-y-visible" style={{ height: '1000px' }}>
+        {/* CHART HEIGHT: Reduced from 1000px to 800px */}
+        <div className="relative w-full overflow-x-auto overflow-y-visible" style={{ height: '800px' }}>
             <div className="relative min-w-full w-max h-full overflow-visible">
                 
                 {/* Layer 1: Columns (Backgrounds) - Z-0 */}
