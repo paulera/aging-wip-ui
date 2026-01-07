@@ -191,7 +191,7 @@ const calculateLayout = (filteredColumns, maxDays) => {
 
 // --- Components ---
 
-const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin, onUpdatePosition, useTypeColor, sleColor, columnName }) => {
+const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin, onUpdatePosition, useTypeColor, sleColor, columnName, flipType, onFlip }) => {
   const tooltipRef = useRef(null);
   const [adjustedStyle, setAdjustedStyle] = useState({ 
     visibility: 'hidden', 
@@ -202,7 +202,7 @@ const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState(null);
 
-  // Handle P key for pinning/unpinning when hovering tooltip
+  // Handle P key for pinning/unpinning and flip keys when hovering tooltip
   useEffect(() => {
     if (!isHoveringTooltip) return;
     
@@ -216,12 +216,21 @@ const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin
       if (e.key === 'p' || e.key === 'P') {
         e.preventDefault();
         onTogglePin(item.key);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        onFlip(item.key, null);
+      } else if (e.key === '.') {
+        e.preventDefault();
+        onFlip(item.key, '.');
+      } else if (e.key === 'i' || e.key === 'I') {
+        e.preventDefault();
+        onFlip(item.key, 'i');
       }
     };
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isHoveringTooltip, onTogglePin, item.key]);
+  }, [isHoveringTooltip, onTogglePin, onFlip, item.key]);
 
   // Handle dragging
   useEffect(() => {
@@ -314,7 +323,7 @@ const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin
         top: adjustedStyle.top,
         visibility: adjustedStyle.visibility,
         transform: 'translateX(-50%)',
-        pointerEvents: isPinned ? 'auto' : 'none',
+        pointerEvents: 'auto',
         zIndex: 9999
       }}
       onMouseEnter={() => setIsHoveringTooltip(true)}
@@ -368,82 +377,123 @@ const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin
       </div>
 
       {/* Card Body - Not draggable, links and text selectable */}
-      <div className="p-3">
-      <p className="text-sm font-medium text-slate-700 leading-tight mb-2">{item.title}</p>
-      
-      {/* Status and Priority in 2-column layout */}
-      <div className="mb-2 pb-2 border-b border-slate-100 grid grid-cols-2 gap-3">
-        {/* Status column */}
-        <div>
-          <div className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider flex items-center gap-1">
-            Status
-          </div>
-          <div className="text-xs text-slate-700 font-medium">
-            {columnName || 'Unknown'}
-          </div>
-        </div>
-        
-        {/* Priority column */}
-        {item.priority && (
-          <div>
-            <div className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider flex items-center gap-1">
-              Priority
+      <div className="p-3" style={{ perspective: '1000px' }}>
+        <div 
+          style={{
+            transformStyle: 'preserve-3d',
+            transition: 'transform 0.6s',
+            transform: flipType ? 'rotateY(180deg)' : 'rotateY(0deg)',
+            position: 'relative',
+            minHeight: '200px'
+          }}
+        >
+          {/* Front of card */}
+          <div style={{ 
+            backfaceVisibility: 'hidden',
+            display: flipType ? 'none' : 'block'
+          }}>
+            <p className="text-sm font-medium text-slate-700 leading-tight mb-2">{item.title}</p>
+            
+            {/* Status and Priority in 2-column layout */}
+            <div className="mb-2 pb-2 border-b border-slate-100 grid grid-cols-2 gap-3">
+              {/* Status column */}
+              <div>
+                <div className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider flex items-center gap-1">
+                  Status
+                </div>
+                <div className="text-xs text-slate-700 font-medium">
+                  {columnName || 'Unknown'}
+                </div>
+              </div>
+              
+              {/* Priority column */}
+              {item.priority && (
+                <div>
+                  <div className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider flex items-center gap-1">
+                    Priority
+                  </div>
+                  <div className="text-xs text-slate-700 font-medium flex items-center gap-1">
+                    <span>{priorityEmoji}</span>
+                    <span>{item.priority}</span>
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="text-xs text-slate-700 font-medium flex items-center gap-1">
-              <span>{priorityEmoji}</span>
-              <span>{item.priority}</span>
-            </div>
-          </div>
-        )}
-      </div>
 
-      {item.parent && (
-        <div className="mb-2 pb-2 border-b border-slate-100">
-           <div className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider flex items-center gap-1">
-             Parent
-           </div>
-           <div className="text-xs text-blue-600 truncate font-medium">{item.parent.key} - {item.parent.title}</div>
-        </div>
-      )}
-
-      {/* Dependency Info */}
-      {dependency && (
-        <div className="mb-2 pb-2 border-b border-slate-100">
-           <div className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider flex items-center gap-1">
-             <LinkIcon size={10} /> Depends on
-           </div>
-           <div className="text-xs text-amber-600 truncate font-medium">
-             {dependency.key} - {dependency.title}
-           </div>
-        </div>
-      )}
-
-      <div className="flex flex-wrap gap-1 mb-2">
-        {item.labels.map(label => (
-          <span key={label} className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full border border-blue-100">
-            {label}
-          </span>
-        ))}
-      </div>
-
-      <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-        <div className="w-5 h-5 bg-indigo-100 rounded-full flex items-center justify-center text-[10px] text-indigo-700 font-bold overflow-hidden">
-            {item.assignee.picture ? (
-              <img src={item.assignee.picture} className="w-full h-full object-cover" alt={item.assignee.name} />
-            ) : (
-              <span>
-                {item.assignee.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-              </span>
+            {item.parent && (
+              <div className="mb-2 pb-2 border-b border-slate-100">
+                 <div className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider flex items-center gap-1">
+                   Parent
+                 </div>
+                 <div className="text-xs text-blue-600 truncate font-medium">{item.parent.key} - {item.parent.title}</div>
+              </div>
             )}
+
+            {/* Dependency Info */}
+            {dependency && (
+              <div className="mb-2 pb-2 border-b border-slate-100">
+                 <div className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider flex items-center gap-1">
+                   <LinkIcon size={10} /> Depends on
+                 </div>
+                 <div className="text-xs text-amber-600 truncate font-medium">
+                   {dependency.key} - {dependency.title}
+                 </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-1 mb-2">
+              {item.labels.map(label => (
+                <span key={label} className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full border border-blue-100">
+                  {label}
+                </span>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+              <div className="w-5 h-5 bg-indigo-100 rounded-full flex items-center justify-center text-[10px] text-indigo-700 font-bold overflow-hidden">
+                  {item.assignee.picture ? (
+                    <img src={item.assignee.picture} className="w-full h-full object-cover" alt={item.assignee.name} />
+                  ) : (
+                    <span>
+                      {item.assignee.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                    </span>
+                  )}
+              </div>
+              <span className="text-xs text-slate-500">{item.assignee.name}</span>
+            </div>
+          </div>
+
+          {/* Back of card - flipped content */}
+          {flipType && (
+            <div style={{ 
+              backfaceVisibility: 'hidden',
+              transform: 'rotateY(180deg)',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: '100%',
+              minHeight: '200px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <div className="text-center">
+                <div className="text-6xl font-bold text-slate-700">{flipType}</div>
+                <div className="text-sm text-slate-500 mt-4">Flip type: {flipType}</div>
+              </div>
+            </div>
+          )}
         </div>
-        <span className="text-xs text-slate-500">{item.assignee.name}</span>
-      </div>
       </div>
     </div>
   );
 };
 
-const ItemDot = ({ layout, layoutMap, setTooltipData, theme, onTogglePin }) => {
+
+
+const ItemDot = ({ layout, layoutMap, setTooltipData, theme, onTogglePin, onFlip }) => {
   const { item, localXPct, y } = layout;
   const [hovered, setHovered] = useState(false);
 
@@ -461,12 +511,21 @@ const ItemDot = ({ layout, layoutMap, setTooltipData, theme, onTogglePin }) => {
       if (e.key === 'p' || e.key === 'P') {
         e.preventDefault();
         onTogglePin(item.key);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        onFlip(item.key, null);
+      } else if (e.key === '.') {
+        e.preventDefault();
+        onFlip(item.key, '.');
+      } else if (e.key === 'i' || e.key === 'I') {
+        e.preventDefault();
+        onFlip(item.key, 'i');
       }
     };
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [hovered, onTogglePin, item.key]);
+  }, [hovered, onTogglePin, onFlip, item.key]);
 
   // Get theme config for the type
   const typeConfig = theme.types[item.type] || { 
@@ -855,6 +914,7 @@ export default function App() {
     }
   });
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
+  const [flippedCards, setFlippedCards] = useState(new Map()); // Map<itemKey, flipType>
   const chartContainerRef = useRef(null);
 
   // Save pinned items to localStorage
@@ -1018,6 +1078,19 @@ export default function App() {
       if (e.key === 'c' || e.key === 'C') {
         e.preventDefault();
         setUseTypeColorForCards(!useTypeColorForCards);
+        return;
+      }
+      
+      // Flip shortcuts - only work when hovering a card
+      if (e.key === '.') {
+        e.preventDefault();
+        // Will be handled by tooltip hover handler
+        return;
+      }
+      
+      if (e.key === 'i' || e.key === 'I') {
+        e.preventDefault();
+        // Will be handled by tooltip hover handler
         return;
       }
       
@@ -1239,6 +1312,23 @@ export default function App() {
     }
   };
 
+  const handleFlip = (itemKey, flipType) => {
+    setFlippedCards(prev => {
+      const newMap = new Map(prev);
+      // If flipType is null, unflip the card
+      if (flipType === null || flipType === undefined) {
+        newMap.delete(itemKey);
+      } else if (newMap.get(itemKey) === flipType) {
+        // If already flipped with same type, unflip
+        newMap.delete(itemKey);
+      } else {
+        // Flip to new type
+        newMap.set(itemKey, flipType);
+      }
+      return newMap;
+    });
+  };
+
   // Generate legend from theme types
   const typeLegend = Object.entries(theme.types).map(([typeName, config]) => (
     <div key={typeName} className="flex items-center gap-3 text-base text-slate-700">
@@ -1337,6 +1427,7 @@ export default function App() {
                             showSLEZones={showSLEZones}
                             showSLEValues={showSLEValues}
                             togglePin={togglePin}
+                            handleFlip={handleFlip}
                         />
                     ))}
                 </div>
@@ -1403,6 +1494,8 @@ export default function App() {
             useTypeColor={useTypeColorForCards}
             sleColor={sleColor}
             columnName={itemColumn?.name}
+            flipType={flippedCards.get(itemKey)}
+            onFlip={handleFlip}
           />
         );
       })}
@@ -1427,6 +1520,8 @@ export default function App() {
             const itemColumn = columns.find(col => col.items.some(i => i.key === tooltipData.item.key));
             return itemColumn?.name;
           })()}
+          flipType={flippedCards.get(tooltipData.item.key)}
+          onFlip={handleFlip}
         />
       )}
       
@@ -1503,12 +1598,19 @@ export default function App() {
                     <kbd className="px-2 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-mono">P</kbd>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-700">Pin all visible cards</span>
+                    <span className="text-sm text-slate-700">Open all filtered tasks</span>
                     <kbd className="px-2 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-mono">A</kbd>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-slate-700">Clear all pinned cards</span>
                     <kbd className="px-2 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-mono">X</kbd>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-700">Flip card (hover card)</span>
+                    <div className="flex gap-1">
+                      <kbd className="px-2 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-mono">.</kbd>
+                      <kbd className="px-2 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-mono">I</kbd>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1564,7 +1666,7 @@ const calculateLayoutWithWidths = (filteredColumns, maxDays, columnWidths) => {
   return layoutMap;
 };
 
-const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, widthMultiplier = 1, onColumnClick, showSLEZones = true, showSLEValues = true, togglePin }) => {
+const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, widthMultiplier = 1, onColumnClick, showSLEZones = true, showSLEValues = true, togglePin, handleFlip }) => {
   const { name, top_text, bottom_text, sle, items } = columnData;
   const [isHovered, setIsHovered] = useState(false);
   
@@ -1687,6 +1789,7 @@ const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, w
                         setTooltipData={setTooltipData}
                         theme={theme}
                         onTogglePin={togglePin}
+                        onFlip={handleFlip}
                     />
                 );
              })}
