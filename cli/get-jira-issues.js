@@ -594,7 +594,7 @@ function parseWindow(windowStr, referenceDate) {
 }
 
 function extractStatusTransitions(issues, statusCategoryMap) {
-  const transitionsByStatusId = new Map(); // statusId -> [overallAges]
+  const transitionsByStatusId = new Map(); // statusId -> [timeInStatus]
   
   trace(`Extracting status transitions from ${issues.length} issues...`);
   
@@ -603,14 +603,11 @@ function extractStatusTransitions(issues, statusCategoryMap) {
       return;
     }
     
-    // First, find when this issue first exited TODO status category
-    const firstExitFromTodo = findFirstStableExitFromTodo(issue.changelog, statusCategoryMap);
-    const baseDate = firstExitFromTodo ? new Date(firstExitFromTodo) : new Date(issue.fields.created);
-    
     // Sort histories chronologically (oldest first)
     const histories = [...issue.changelog.histories].reverse();
     
     let currentStatusId = null;
+    let currentStatusEntryDate = null;
     
     histories.forEach(history => {
       const statusChange = history.items.find(item => item.field === 'status');
@@ -618,15 +615,15 @@ function extractStatusTransitions(issues, statusCategoryMap) {
       if (statusChange) {
         const fromStatusId = statusChange.from;
         const toStatusId = statusChange.to;
-        const exitDate = new Date(history.created);
+        const transitionDate = new Date(history.created);
         
         // If we have a current status being tracked, record its exit
-        if (currentStatusId && fromStatusId === currentStatusId) {
-          // Calculate overall age at exit using ProKanban Day 1 standard
-          const overallAgeMs = exitDate - baseDate;
-          const overallAgeDays = Math.floor(overallAgeMs / (1000 * 60 * 60 * 24));
+        if (currentStatusId && fromStatusId === currentStatusId && currentStatusEntryDate) {
+          // Calculate time spent in this status using ProKanban Day 1 standard
+          const timeInStatusMs = transitionDate - currentStatusEntryDate;
+          const timeInStatusDays = Math.floor(timeInStatusMs / (1000 * 60 * 60 * 24));
           // ProKanban: work is "Day 1" from the moment it starts
-          const overallAge = Math.max(1, overallAgeDays + 1);
+          const timeInStatus = Math.max(1, timeInStatusDays + 1);
           
           if (!transitionsByStatusId.has(currentStatusId)) {
             transitionsByStatusId.set(currentStatusId, []);
@@ -635,14 +632,15 @@ function extractStatusTransitions(issues, statusCategoryMap) {
           transitionsByStatusId.get(currentStatusId).push({
             issueKey: issue.key,
             exitDate: history.created.split('T')[0],
-            overallAge: overallAge
+            overallAge: timeInStatus // Keep name for backward compatibility
           });
           
-          trace(`  ${issue.key}: Status ${currentStatusId} exited at overall age ${overallAge} days`);
+          trace(`  ${issue.key}: Status ${currentStatusId} spent ${timeInStatus} days (${currentStatusEntryDate.toISOString().split('T')[0]} -> ${transitionDate.toISOString().split('T')[0]})`);
         }
         
         // Update current status tracking
         currentStatusId = toStatusId;
+        currentStatusEntryDate = transitionDate;
       }
     });
   });
