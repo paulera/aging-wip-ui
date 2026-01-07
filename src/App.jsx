@@ -476,13 +476,26 @@ const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin
               width: '100%',
               minHeight: '200px',
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
+              flexDirection: 'column'
             }}>
-              <div className="text-center">
-                <div className="text-6xl font-bold text-slate-700">{flipType}</div>
-                <div className="text-sm text-slate-500 mt-4">Flip type: {flipType}</div>
-              </div>
+              {flipType === '.' ? (
+                // Debug view - JSON data
+                <div className="flex flex-col h-full">
+                  <div className="flex-1 overflow-y-auto" style={{ maxHeight: '400px' }}>
+                    <pre className="text-[10px] text-slate-700 font-mono whitespace-pre-wrap break-words">
+                      {JSON.stringify(item, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              ) : (
+                // Placeholder for other flip types
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <div className="text-6xl font-bold text-slate-700">{flipType}</div>
+                    <div className="text-sm text-slate-500 mt-4">Flip type: {flipType}</div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
