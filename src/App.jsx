@@ -890,12 +890,7 @@ export default function App() {
       // Ignore if typing in an input field
       const target = e.target;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable) {
-        return;
-      }
-      
-      // Only process if interacting with the chart container
-      if (!chartContainerRef.current || !chartContainerRef.current.contains(target)) {
-        return;
+        return  ;
       }
       
       if (e.key === 'Escape') {
@@ -985,7 +980,7 @@ export default function App() {
                strokeDasharray="4 2"
                markerEnd="url(#arrowhead)"
                opacity="0.6"
-             />
+             /> 
           </g>
         );
       }

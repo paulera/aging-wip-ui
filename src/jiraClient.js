@@ -137,6 +137,14 @@ export class JiraClient {
 }
 
 // Data transformation functions
+function formatDate(isoDateString) {
+  const date = new Date(isoDateString);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${year}-${month}-${day}`;
+}
+
 function calculateAge(createdDate, referenceDate) {
   const created = new Date(createdDate);
   const reference = new Date(referenceDate);
@@ -216,6 +224,8 @@ function transformIssue(issue, referenceDate, jiraUrl) {
     type: fields.issuetype?.name || 'Unknown',
     age: age,
     age_in_current_state: age, // Simplified for now
+    start_date: fields.created,
+    current_state_start_date: fields.created, // Simplified for now
     priority: fields.priority?.name || 'Medium',
     assignee: {
       name: fields.assignee?.displayName || 'Unassigned',
@@ -245,7 +255,7 @@ function transformIssue(issue, referenceDate, jiraUrl) {
 }
 
 export function buildChartData(issues, jiraUrl, theme = DEFAULT_THEME) {
-  const referenceDate = new Date().toISOString();
+  const referenceDate = formatDate(new Date().toISOString());
   const statuses = extractUniqueStatusIds(issues);
   
   // For simplicity, we'll group by current status without full status metadata
@@ -285,7 +295,8 @@ export function buildChartData(issues, jiraUrl, theme = DEFAULT_THEME) {
   
   return {
     title: "Jira Aging WIP",
-    subtitle: `As of ${new Date().toLocaleDateString()}`,
+    subtitle: `As of ${referenceDate}`,
+    reference_date: referenceDate,
     board_url: jiraUrl,
     min_days: 0,
     max_days: Math.max(30, Math.ceil(maxAge * 1.1)),

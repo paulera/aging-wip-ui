@@ -277,6 +277,14 @@ function calculateAge(createdDate, referenceDate) {
   return Math.max(1, diffDays + 1);
 }
 
+function formatDate(isoDateString) {
+  const date = new Date(isoDateString);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${year}-${month}-${day}`;
+}
+
 function buildStatusCategoryMap(statuses) {
   const map = new Map();
   statuses.forEach(status => {
@@ -430,7 +438,9 @@ function calculateAgeMetrics(issue, referenceDate, statusCategoryMap) {
   
   return {
     age: totalAge,
-    age_in_current_state: currentStateAge
+    age_in_current_state: currentStateAge,
+    start_date: formatDate(ageStartDate),
+    current_state_start_date: formatDate(currentStateStartDate)
   };
 }
 
@@ -463,6 +473,8 @@ function transformIssue(issue, referenceDate, jiraBaseUrl, statusCategoryMap) {
     type: (fields.issuetype && fields.issuetype.name) || 'Unknown',
     age: ageMetrics.age,
     age_in_current_state: ageMetrics.age_in_current_state,
+    start_date: ageMetrics.start_date,
+    current_state_start_date: ageMetrics.current_state_start_date,
     priority: (fields.priority && fields.priority.name) || 'Medium',
     assignee: {
       name: (fields.assignee && fields.assignee.displayName) || 'Unassigned',
@@ -796,7 +808,8 @@ function buildOutput(issues, referenceDate, jiraBaseUrl, theme, statusCategoryMa
 
   return {
     title: "Jira Issues - Aging WIP",
-    subtitle: `As of ${referenceDate}`,
+    subtitle: `As of ${formatDate(referenceDate)}`,
+    reference_date: formatDate(referenceDate),
     board_url: jiraBaseUrl,
     min_days: 0,
     max_days: maxAge,
