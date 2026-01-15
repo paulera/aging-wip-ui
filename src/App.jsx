@@ -191,7 +191,7 @@ const calculateLayout = (filteredColumns, maxDays) => {
 
 // --- Components ---
 
-const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin, onUpdatePosition, useTypeColor, sleColor, columnName, flipType, onFlip }) => {
+const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin, onUpdatePosition, useTypeColor, sleColor, columnName, flipType, onFlip, tooltipHideTimeoutRef, isTooltipHoveredRef, setTooltipData }) => {
   const tooltipRef = useRef(null);
   const [adjustedStyle, setAdjustedStyle] = useState({ 
     visibility: 'hidden', 
@@ -326,8 +326,35 @@ const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin
         pointerEvents: 'auto',
         zIndex: 9999
       }}
-      onMouseEnter={() => setIsHoveringTooltip(true)}
-      onMouseLeave={() => setIsHoveringTooltip(false)}
+      onMouseEnter={() => {
+        // Clear any pending hide timeout
+        if (tooltipHideTimeoutRef?.current) {
+          clearTimeout(tooltipHideTimeoutRef.current);
+          tooltipHideTimeoutRef.current = null;
+        }
+        // Mark tooltip as hovered
+        if (isTooltipHoveredRef) {
+          isTooltipHoveredRef.current = true;
+        }
+        setIsHoveringTooltip(true);
+      }}
+      onMouseLeave={() => {
+        // Mark tooltip as not hovered
+        if (isTooltipHoveredRef) {
+          isTooltipHoveredRef.current = false;
+        }
+        setIsHoveringTooltip(false);
+        
+        // Wait 5ms before hiding (only for non-pinned)
+        if (!isPinned && tooltipHideTimeoutRef && setTooltipData) {
+          tooltipHideTimeoutRef.current = setTimeout(() => {
+            // Only hide if neither dot nor tooltip is hovered
+            if (!isTooltipHoveredRef?.current) {
+              setTooltipData(null);
+            }
+          }, 5);
+        }
+      }}
     >
       {/* Draggable Header */}
       <div 
@@ -506,7 +533,7 @@ const SmartTooltip = ({ item, dependency, position, theme, isPinned, onTogglePin
 
 
 
-const ItemDot = ({ layout, layoutMap, setTooltipData, theme, onTogglePin, onFlip }) => {
+const ItemDot = ({ layout, layoutMap, setTooltipData, theme, onTogglePin, onFlip, tooltipHideTimeoutRef, isDotHoveredRef, isTooltipHoveredRef }) => {
   const { item, localXPct, y } = layout;
   const [hovered, setHovered] = useState(false);
 
@@ -558,6 +585,17 @@ const ItemDot = ({ layout, layoutMap, setTooltipData, theme, onTogglePin, onFlip
   const displayText = item.nickname || icon;
 
   const handleMouseEnter = (e) => {
+    // Clear any pending hide timeout
+    if (tooltipHideTimeoutRef?.current) {
+      clearTimeout(tooltipHideTimeoutRef.current);
+      tooltipHideTimeoutRef.current = null;
+    }
+    
+    // Mark dot as hovered
+    if (isDotHoveredRef) {
+      isDotHoveredRef.current = true;
+    }
+    
     setHovered(true);
     const rect = e.currentTarget.getBoundingClientRect();
     
@@ -575,7 +613,21 @@ const ItemDot = ({ layout, layoutMap, setTooltipData, theme, onTogglePin, onFlip
 
   const handleMouseLeave = () => {
     setHovered(false);
-    setTooltipData(null);
+    
+    // Mark dot as not hovered
+    if (isDotHoveredRef) {
+      isDotHoveredRef.current = false;
+    }
+    
+    // Wait 5ms before hiding to avoid glitch
+    if (tooltipHideTimeoutRef) {
+      tooltipHideTimeoutRef.current = setTimeout(() => {
+        // Only hide if neither dot nor tooltip is hovered
+        if (!isDotHoveredRef?.current && !isTooltipHoveredRef?.current) {
+          setTooltipData(null);
+        }
+      }, 5);
+    }
   };
 
   return (
@@ -876,6 +928,9 @@ export default function App() {
 
   const { title, subtitle, max_days, columns, board_url, features, theme } = data;
   const [tooltipData, setTooltipData] = useState(null);
+  const tooltipHideTimeoutRef = useRef(null);
+  const isDotHoveredRef = useRef(false);
+  const isTooltipHoveredRef = useRef(false);
   const [pinnedItems, setPinnedItems] = useState(() => {
     try {
       const stored = localStorage.getItem('pinnedItems');
@@ -1441,6 +1496,9 @@ export default function App() {
                             showSLEValues={showSLEValues}
                             togglePin={togglePin}
                             handleFlip={handleFlip}
+                            tooltipHideTimeoutRef={tooltipHideTimeoutRef}
+                            isDotHoveredRef={isDotHoveredRef}
+                            isTooltipHoveredRef={isTooltipHoveredRef}
                         />
                     ))}
                 </div>
@@ -1509,6 +1567,9 @@ export default function App() {
             columnName={itemColumn?.name}
             flipType={flippedCards.get(itemKey)}
             onFlip={handleFlip}
+            tooltipHideTimeoutRef={null}
+            isTooltipHoveredRef={null}
+            setTooltipData={null}
           />
         );
       })}
@@ -1535,6 +1596,9 @@ export default function App() {
           })()}
           flipType={flippedCards.get(tooltipData.item.key)}
           onFlip={handleFlip}
+          tooltipHideTimeoutRef={tooltipHideTimeoutRef}
+          isTooltipHoveredRef={isTooltipHoveredRef}
+          setTooltipData={setTooltipData}
         />
       )}
       
@@ -1679,7 +1743,7 @@ const calculateLayoutWithWidths = (filteredColumns, maxDays, columnWidths) => {
   return layoutMap;
 };
 
-const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, widthMultiplier = 1, onColumnClick, showSLEZones = true, showSLEValues = true, togglePin, handleFlip }) => {
+const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, widthMultiplier = 1, onColumnClick, showSLEZones = true, showSLEValues = true, togglePin, handleFlip, tooltipHideTimeoutRef, isDotHoveredRef, isTooltipHoveredRef }) => {
   const { name, top_text, bottom_text, sle, items } = columnData;
   const [isHovered, setIsHovered] = useState(false);
   
@@ -1803,6 +1867,9 @@ const StatusColumn = ({ columnData, maxDays, layoutMap, setTooltipData, theme, w
                         theme={theme}
                         onTogglePin={togglePin}
                         onFlip={handleFlip}
+                        tooltipHideTimeoutRef={tooltipHideTimeoutRef}
+                        isDotHoveredRef={isDotHoveredRef}
+                        isTooltipHoveredRef={isTooltipHoveredRef}
                     />
                 );
              })}
